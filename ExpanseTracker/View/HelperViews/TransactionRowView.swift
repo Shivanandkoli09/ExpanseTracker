@@ -13,7 +13,7 @@ struct TransactionRowView: View {
            var body: some View {
                VStack(alignment: .leading, spacing: 4) {
                    HStack {
-                       Text(txn.titile)
+                       Text(txn.title)
                            .font(.headline)
                        Spacer()
                        Text("₹\(txn.amount, specifier: "%.2f")")

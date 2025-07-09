@@ -108,9 +108,7 @@ struct HomeView: View {
     private func deleteTransaction(from group: [Transaction], at offsets: IndexSet) {
         for index in offsets {
             let txnToDelete = group[index]
-            if let actualIndex = transactionManager.transactions.firstIndex(where: { $0.id == txnToDelete.id }) {
-                transactionManager.transactions.remove(at: actualIndex)
-            }
+            transactionManager.deleteTransaction(txnToDelete)
         }
     }
     private func getCurrentFilteredList() -> [Transaction] {

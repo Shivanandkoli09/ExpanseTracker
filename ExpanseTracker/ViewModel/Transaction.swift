@@ -16,14 +16,14 @@ enum TransactionType: String, CaseIterable, Identifiable, Codable, Equatable {
 
 struct Transaction: Identifiable, Codable, Equatable {
     let id: UUID
-    let titile: String
+    let title: String
     let amount: Double
     let date: Date
     let type: TransactionType
     
     init(id: UUID = UUID(), titile: String, amount: Double, date: Date, type: TransactionType) {
         self.id = id
-        self.titile = titile
+        self.title = titile
         self.amount = amount
         self.date = date
         self.type = type

@@ -9,11 +9,15 @@ import SwiftUI
 
 @main
 struct ExpanseTrackerApp: App {
-    @StateObject private var transactionManager = TransactionManager()
+    let persistenceController = PersistenceController()
     var body: some Scene {
         WindowGroup {
+            let context = persistenceController.container.viewContext
+            let transactionManager = TransactionManager(context: context)
             NavigationStack {
                 HomeView()
+                    .environment(\.managedObjectContext, context)
+                    .environmentObject(transactionManager)
             }
             .environmentObject(transactionManager)
         }

@@ -1,10 +1,12 @@
-  Form {
-            TextField("Title", text: $title)
-            TextField("Amount", text: $amount)
-                .keyboardType(.decimalPad)
-            Picker("Type", selection: $type) {
-                ForEach(TransactionType.allCases) { t in
-                    Text(t.rawValue).tag(t)
-                }
-            }
-            DatePicker("Date", selection: $date, displayedComponents: .date)
+//
+//  Constants.swift
+//  ExpanseTracker
+//
+//  Created by KPIT on 26/06/25.
+//
+
+//For Keyabord Dismsiss
+enum FieldFocus: Hashable {
+    case title
+    case amount
+}

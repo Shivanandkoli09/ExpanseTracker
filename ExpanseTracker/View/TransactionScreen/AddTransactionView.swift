@@ -25,7 +25,7 @@ struct AddTransactionView: View {
         self.existingTransaction = existingTransaction
         
         if let txn = existingTransaction {
-            _title = State(initialValue: txn.titile)
+            _title = State(initialValue: txn.title)
             _amount = State(initialValue: "\(txn.amount)")
             _date = State(initialValue: txn.date)
             _type = State(initialValue: txn.type)
@@ -60,32 +60,29 @@ struct AddTransactionView: View {
 //            }
 //            .buttonStyle(.borderedProminent)
         }
+        .modifier(KeyboardDismissModifier())
         .navigationTitle(existingTransaction == nil ? "Add Transaction" : "Edit Transaction")
         
-        
+        Spacer()
         Button(existingTransaction == nil ? "Add Transaction" : "Update Transaction") {
             let amt = Double(amount) ?? 0
             if let existing = existingTransaction {
                 // Edit mode: remove old, add updated
-                manager.transactions.removeAll { $0.id == existing.id }
+//                manager.transactions.removeAll { $0.id == existing.id }
+                let updated = Transaction(id: existing.id, titile: title, amount: amt, date: date, type: type)
+                manager.updateTransaction(updated)
+            } else {
+                manager.addTransaction(title: title, amount: amt, date: date, type: type)
             }
-            let newTxn = Transaction(titile: title, amount: amt, date: date, type: type)
-            manager.transactions.append(newTxn)
             dismiss()
         }
         .disabled(title.isEmpty || amount.isEmpty)
-
-//        Button("Add Transaction") {
-//            if let amt = Double(amount) {
-//                let newTxn = Transaction(titile: title, amount: amt, date: date, type: type)
-//                transactionManager.transactions.append(newTxn)
-//                dismiss()
-//            }
-//        }
-//        .disabled(title.isEmpty || amount.isEmpty)
+        
+        Spacer()
     }
 }
 
 #Preview {
-    AddTransactionView(manager: TransactionManager())
+    let context = PersistenceController.shared.container.viewContext
+    return AddTransactionView(manager: TransactionManager(context: context))
 }
