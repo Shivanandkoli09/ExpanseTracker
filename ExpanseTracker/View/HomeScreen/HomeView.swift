@@ -61,9 +61,22 @@ struct HomeView: View {
                     Section(header: Text(month).font(.headline)) {
                         ForEach(transactions) { txn in
                             TransactionRowView(txn: txn)
-                                .onTapGesture {
-                                    selectedTransaction = txn
-//                                    isEditing = true
+                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                    Button(role: .destructive) {
+                                        if let index = transactions.firstIndex(where: { $0.id == txn.id }) {
+                                            deleteTransaction(from: transactions, at: IndexSet(integer: index))
+                                        }
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                    
+                                    Button {
+                                        selectedTransaction = txn
+                                        isEditing = true // Trigger your edit flow
+                                    } label: {
+                                        Label("Edit", systemImage: "pencil")
+                                    }
+                                    .tint(.blue)
                                 }
                         }
                         .onDelete { indexSet in
