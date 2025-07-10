@@ -37,48 +37,57 @@ struct AddTransactionView: View {
         }
     }
     var body: some View {
-        Form {
-            TextField("Title", text: $title)
-            TextField("Amount", text: $amount)
-                .keyboardType(.decimalPad)
-            Picker("Type", selection: $type) {
-                ForEach(TransactionType.allCases) { t in
-                    Text(t.rawValue).tag(t)
+        ZStack {
+            Color(.systemGroupedBackground)
+                .ignoresSafeArea()
+            VStack {
+                Form {
+                    Section(header: Text("Details").foregroundColor(.secondary)) {
+                        TextField("Title", text: $title)
+                            .textInputAutocapitalization(.words)
+                            .padding(.vertical, 4)
+                        
+                        TextField("Amount", text: $amount)
+                            .keyboardType(.decimalPad)
+                            .padding(.vertical, 4)
+                        
+                        Picker("Type", selection: $type) {
+                            ForEach(TransactionType.allCases) { t in
+                                Text(t.rawValue.capitalized).tag(t)
+                            }
+                        }
+                        
+                        DatePicker("Date", selection: $date, displayedComponents: .date)
+                    }
+                    
+                    // ✅ Action Button inside the form
+                    Section {
+                        Button(action: {
+                            let amt = Double(amount) ?? 0
+                            if let existing = existingTransaction {
+                                let updated = Transaction(id: existing.id, titile: title, amount: amt, date: date, type: type)
+                                manager.updateTransaction(updated)
+                            } else {
+                                manager.addTransaction(title: title, amount: amt, date: date, type: type)
+                            }
+                            dismiss()
+                        }) {
+                            HStack {
+                                Spacer()
+                                Text(existingTransaction == nil ? "Add Transaction" : "Update Transaction")
+                                    .fontWeight(.semibold)
+                                Spacer()
+                            }
+                        }
+                        .disabled(title.isEmpty || amount.isEmpty)
+                    }
                 }
+                .modifier(KeyboardDismissModifier())
+                .navigationTitle(existingTransaction == nil ? "Add Transaction" : "Edit Transaction")
+                .navigationBarTitleDisplayMode(.inline)
             }
-            DatePicker("Date", selection: $date, displayedComponents: .date)
-            
-//            Button(existingTransaction == nil ? "Add Transaction" : "Update Transaction") {
-//                let amt = Double(amount) ?? 0
-//                if let existing = existingTransaction {
-//                    // Edit mode: remove old, add updated
-//                    manager.transactions.removeAll { $0.id == existing.id }
-//                }
-//                let newTxn = Transaction(titile: title, amount: amt, date: date, type: type)
-//                manager.transactions.append(newTxn)
-//                dismiss()
-//            }
-//            .buttonStyle(.borderedProminent)
         }
-        .modifier(KeyboardDismissModifier())
-        .navigationTitle(existingTransaction == nil ? "Add Transaction" : "Edit Transaction")
         
-        Spacer()
-        Button(existingTransaction == nil ? "Add Transaction" : "Update Transaction") {
-            let amt = Double(amount) ?? 0
-            if let existing = existingTransaction {
-                // Edit mode: remove old, add updated
-//                manager.transactions.removeAll { $0.id == existing.id }
-                let updated = Transaction(id: existing.id, titile: title, amount: amt, date: date, type: type)
-                manager.updateTransaction(updated)
-            } else {
-                manager.addTransaction(title: title, amount: amt, date: date, type: type)
-            }
-            dismiss()
-        }
-        .disabled(title.isEmpty || amount.isEmpty)
-        
-        Spacer()
     }
 }
 

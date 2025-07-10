@@ -79,9 +79,6 @@ struct HomeView: View {
                                     .tint(.blue)
                                 }
                         }
-                        .onDelete { indexSet in
-                            deleteTransaction(from: transactions, at: indexSet)
-                        }
                     }
                 }
             }
