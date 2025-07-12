@@ -23,6 +23,7 @@ struct HomeView: View {
     @State private var selectedFilter: TransactionFilter = .all
     @State private var selectedTransaction: Transaction?
     @State private var isEditing: Bool = false
+    @State private var searchText: String = ""
     
     @EnvironmentObject  var transactionManager: TransactionManager
     
@@ -42,7 +43,20 @@ struct HomeView: View {
             }
         }
         
-        return filtered.sorted { $0.date > $1.date }
+        let sorted = filtered.sorted { $0.date > $1.date }
+        if searchText.isEmpty {
+            return sorted
+        } else {
+            return sorted.filter { txn in
+                let amountString = String(format: "%.2f", txn.amount)
+                let dateString = DateFormatter.localizedString(from: txn.date, dateStyle: .medium, timeStyle: .none)
+                return txn.title.localizedCaseInsensitiveContains(searchText) ||
+                amountString.localizedCaseInsensitiveContains(searchText) ||
+                dateString.localizedCaseInsensitiveContains(searchText)
+            }
+        }
+        
+        
     }
     var body: some View {
         VStack {
@@ -83,6 +97,7 @@ struct HomeView: View {
                 }
             }
             .listStyle(.insetGrouped)
+            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Search Transaction")
         }
         .navigationBarTitle("MyMoney", displayMode: .inline)
         .sheet(item: $selectedTransaction) { txn in 
