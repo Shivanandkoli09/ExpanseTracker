@@ -19,14 +19,18 @@ struct ExpanseTrackerApp: App {
     var body: some Scene {
         WindowGroup {
             let context = persistenceController.container.viewContext
-            let transactionManager = TransactionManager(context: context)
+            
             
             Group {
-                if authviewModel.isLoggedIn {
+                if authviewModel.isLoggedIn, let userID = authviewModel.userID {
+                    
+                    let firestoreManager = FirestoreTransactionManager(userId: userID, context: context)
+                    let transactionManager = TransactionManager(context: context, firestoreManager: firestoreManager)
                     NavigationStack {
                         HomeView()
                             .environment(\.managedObjectContext, context)
                             .environmentObject(transactionManager)
+                            .environmentObject(firestoreManager)
                             .environmentObject(authviewModel)
                     }
                 } else {
@@ -36,7 +40,6 @@ struct ExpanseTrackerApp: App {
                     }
                 }
             }
-            .environmentObject(transactionManager)
         }
     }
 }
