@@ -15,6 +15,11 @@ final class AITransactionClassifier {
 
     func predict(title: String) -> (type: TransactionType, category: TransactionCategory) {
         
+        // ✅ Check user-learned preference first
+        if let learnedCategory = UserPreferenceStore.shared.getPreference(for: title) {
+            return (.expanse, learnedCategory)
+        }
+        
         let lowercased = title.lowercased()
         
         // ✅ Step 1: Tokenize words using Apple NLP

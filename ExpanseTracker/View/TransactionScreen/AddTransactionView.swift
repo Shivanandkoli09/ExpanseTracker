@@ -80,6 +80,12 @@ struct AddTransactionView: View {
                         TextField("Amount", text: $amount)
                             .keyboardType(.decimalPad)
                             .padding(.vertical, 4)
+                        
+                        Picker("Category", selection: $suggestedCategory) {
+                            ForEach(TransactionCategory.allCases, id: \.self) { category in
+                                Text(category.rawValue.capitalized).tag(category)
+                            }
+                        }
 
                         Picker("Type", selection: $type) {
                             ForEach(TransactionType.allCases) { t in
@@ -92,6 +98,16 @@ struct AddTransactionView: View {
 
                     Section {
                         Button(action: {
+                            // Save user correction
+                            let prediction = AITransactionClassifier.shared.predict(title: title)
+
+                            // Save ONLY if user changed AI suggestion
+                            if prediction.category != suggestedCategory {
+                                UserPreferenceStore.shared.savePreference(
+                                    keyword: title,
+                                    category: suggestedCategory
+                                )
+                            }
                             let amt = Double(amount) ?? 0
                             if let existing = existingTransaction {
                                 let updatedTxn = Transaction(

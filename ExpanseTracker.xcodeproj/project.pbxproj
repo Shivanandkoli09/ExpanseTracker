@@ -17,33 +17,9 @@
 		4223ABDB2DF75C07002D2F29 /* ExpanseTracker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ExpanseTracker.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		55A68D272F93D198004D3967 /* Exceptions for "ExpanseTracker" folder in "ExpanseTracker" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				ExpanseTrackerModel.xcdatamodeld,
-			);
-			target = 4223ABDA2DF75C07002D2F29 /* ExpanseTracker */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
-/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
-		55A68D282F93D198004D3967 /* Exceptions for "ExpanseTracker" folder in "Compile Sources" phase from "ExpanseTracker" target */ = {
-			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
-			buildPhase = 4223ABD72DF75C07002D2F29 /* Sources */;
-			membershipExceptions = (
-				ExpanseTrackerModel.xcdatamodeld,
-			);
-		};
-/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		55A68D0F2F93D197004D3967 /* ExpanseTracker */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				55A68D272F93D198004D3967 /* Exceptions for "ExpanseTracker" folder in "ExpanseTracker" target */,
-				55A68D282F93D198004D3967 /* Exceptions for "ExpanseTracker" folder in "Compile Sources" phase from "ExpanseTracker" target */,
-			);
 			path = ExpanseTracker;
 			sourceTree = "<group>";
 		};
