@@ -92,7 +92,7 @@ class TransactionManager: ObservableObject {
         newEntity.type = type.rawValue
 
         saveContext()
-        let txn = Transaction(id: newEntity.id ?? UUID().uuidString, titile: title, amount: amount, date: date, type: type)
+        let txn = Transaction(id: newEntity.id ?? UUID().uuidString, titile: title, amount: amount, date: date, type: type, category: .other)
         Task {
             try? await firestoreManager?.addTransaction(txn)
         }
