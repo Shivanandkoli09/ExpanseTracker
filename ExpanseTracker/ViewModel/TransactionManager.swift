@@ -83,16 +83,24 @@ class TransactionManager: ObservableObject {
         }
     }
 
-    func addTransaction(title: String, amount: Double, date: Date, type: TransactionType) {
+    func addTransaction(title: String, amount: Double, date: Date, type: TransactionType, category: TransactionCategory) {
         let newEntity = TransactionEntity(context: context)
         newEntity.id = UUID().uuidString
         newEntity.title = title
         newEntity.amount = amount
         newEntity.date = date
         newEntity.type = type.rawValue
+        newEntity.category = category.rawValue   // ✅ ADD THIS
 
         saveContext()
-        let txn = Transaction(id: newEntity.id ?? UUID().uuidString, titile: title, amount: amount, date: date, type: type, category: .other)
+        let txn = Transaction(
+            id: newEntity.id ?? UUID().uuidString,
+            titile: title,
+            amount: amount,
+            date: date,
+            type: type,
+            category: category   // ✅ ADD THIS
+        )
         Task {
             try? await firestoreManager?.addTransaction(txn)
         }
