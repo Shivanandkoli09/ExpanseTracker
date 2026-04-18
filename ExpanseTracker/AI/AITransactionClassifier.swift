@@ -5,6 +5,8 @@
 //  Created by Shivanand Koli on 18/04/26.
 //
 
+import NaturalLanguage
+
 final class AITransactionClassifier {
 
     static let shared = AITransactionClassifier()
@@ -12,39 +14,54 @@ final class AITransactionClassifier {
     private init() {}
 
     func predict(title: String) -> (type: TransactionType, category: TransactionCategory) {
-        let text = title.lowercased()
+        
+        let lowercased = title.lowercased()
+        
+        // ✅ Step 1: Tokenize words using Apple NLP
+        let tokenizer = NLTokenizer(unit: .word)
+        tokenizer.string = lowercased
+        
+        var tokens: [String] = []
+        
+        tokenizer.enumerateTokens(in: lowercased.startIndex..<lowercased.endIndex) { range, _ in
+            let word = String(lowercased[range])
+            tokens.append(word)
+            return true
+        }
 
-        // MARK: - Income detection
-        if text.contains("salary") || text.contains("bonus") || text.contains("freelance") {
+        // ✅ Step 2: Smarter matching using tokens
+        let tokenSet = Set(tokens)
+
+        // MARK: - Income
+        if tokenSet.contains("salary") || tokenSet.contains("bonus") || tokenSet.contains("freelance") {
             return (.income, .salary)
         }
 
         // MARK: - Transport
-        if text.contains("uber") || text.contains("ola") || text.contains("taxi") || text.contains("petrol") {
+        if tokenSet.contains("uber") || tokenSet.contains("ola") || tokenSet.contains("taxi") || tokenSet.contains("petrol") {
             return (.expanse, .transport)
         }
 
         // MARK: - Food
-        if text.contains("zomato") || text.contains("swiggy") || text.contains("restaurant") || text.contains("food") {
+        if tokenSet.contains("zomato") || tokenSet.contains("swiggy") || tokenSet.contains("restaurant") || tokenSet.contains("food") {
             return (.expanse, .food)
         }
 
         // MARK: - Shopping
-        if text.contains("amazon") || text.contains("flipkart") || text.contains("shopping") {
+        if tokenSet.contains("amazon") || tokenSet.contains("flipkart") || tokenSet.contains("shopping") {
             return (.expanse, .shopping)
         }
 
         // MARK: - Entertainment
-        if text.contains("netflix") || text.contains("movie") || text.contains("spotify") {
+        if tokenSet.contains("netflix") || tokenSet.contains("movie") || tokenSet.contains("spotify") {
             return (.expanse, .entertainment)
         }
 
         // MARK: - Bills
-        if text.contains("electricity") || text.contains("bill") || text.contains("rent") {
+        if tokenSet.contains("electricity") || tokenSet.contains("bill") || tokenSet.contains("rent") {
             return (.expanse, .bills)
         }
 
-        // Default
         return (.expanse, .other)
     }
 }
