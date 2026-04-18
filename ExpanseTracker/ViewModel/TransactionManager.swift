@@ -75,7 +75,8 @@ class TransactionManager: ObservableObject {
                     titile: entity.title ?? "",
                     amount: entity.amount,
                     date: entity.date ?? Date(),
-                    type: TransactionType(rawValue: entity.type ?? "expense") ?? .expanse
+                    type: TransactionType(rawValue: entity.type ?? "expense") ?? .expanse,
+                    category: TransactionCategory(rawValue: entity.category ?? "") ?? .other
                 )
             }
         } catch {
