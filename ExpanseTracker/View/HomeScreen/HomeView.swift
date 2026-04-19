@@ -29,6 +29,8 @@ struct HomeView: View {
     @EnvironmentObject var authViewModel: SignInViewModel
     @EnvironmentObject var firestoreManager: FirestoreTransactionManager
     
+    @State private var insights: [Insight] = []
+    
     var filteredTransactions: [Transaction] {
         let filtered: [Transaction]
         
@@ -63,6 +65,8 @@ struct HomeView: View {
     var body: some View {
         VStack {
             summaryCard()
+            
+           InsightsScrollView(insights: insights)
             
             Picker("Filter", selection: $selectedFilter) {
                 ForEach(TransactionFilter.allCases) { filter in
@@ -100,6 +104,9 @@ struct HomeView: View {
             }
             .listStyle(.insetGrouped)
             .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Search Transaction")
+        }
+        .onAppear {
+            insights = InsightGenerator.generateInsights(from: transactionManager.transactions)
         }
         .navigationBarTitle("MyMoney", displayMode: .inline)
         .sheet(item: $selectedTransaction) { txn in 
@@ -169,6 +176,27 @@ struct HomeView: View {
         }
     }
     
+    struct InsightsScrollView: View {
+        let insights: [Insight]   // Pass your model here
+        
+        var body: some View {
+            if !insights.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(insights) { insight in
+                            Text(insight.message)
+                                .font(.caption)
+                                .padding()
+                                .background(Color.blue.opacity(0.1))
+                                .cornerRadius(10)
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+            }
+        }
+    }
+
     private func summaryCard() -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Total Balance")
