@@ -29,7 +29,7 @@ struct HomeView: View {
     @EnvironmentObject var authViewModel: SignInViewModel
     @EnvironmentObject var firestoreManager: FirestoreTransactionManager
     
-    @State private var insights: [Insight] = []
+    @StateObject private var viewModel = HomeViewModel()
     
     var filteredTransactions: [Transaction] {
         let filtered: [Transaction]
@@ -66,7 +66,7 @@ struct HomeView: View {
         VStack {
             summaryCard()
             
-           InsightsScrollView(insights: insights)
+            InsightsScrollView(insights: viewModel.insights)
             
             Picker("Filter", selection: $selectedFilter) {
                 ForEach(TransactionFilter.allCases) { filter in
@@ -106,7 +106,10 @@ struct HomeView: View {
             .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Search Transaction")
         }
         .onAppear {
-            insights = InsightGenerator.generateInsights(from: transactionManager.transactions)
+            viewModel.generateInsights(from: transactionManager.transactions)
+        }
+        .onChange(of: transactionManager.transactions) { newValue in
+            viewModel.generateInsights(from: newValue)
         }
         .navigationBarTitle("MyMoney", displayMode: .inline)
         .sheet(item: $selectedTransaction) { txn in 
@@ -177,7 +180,7 @@ struct HomeView: View {
     }
     
     struct InsightsScrollView: View {
-        let insights: [Insight]   // Pass your model here
+        let insights: [Insight]
         
         var body: some View {
             if !insights.isEmpty {
