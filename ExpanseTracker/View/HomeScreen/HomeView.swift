@@ -26,6 +26,8 @@ struct HomeView: View {
     @State private var searchText: String = ""
     
     @EnvironmentObject  var transactionManager: TransactionManager
+    @EnvironmentObject var authViewModel: SignInViewModel
+    @EnvironmentObject var firestoreManager: FirestoreTransactionManager
     
     var filteredTransactions: [Transaction] {
         let filtered: [Transaction]
@@ -103,11 +105,23 @@ struct HomeView: View {
         .sheet(item: $selectedTransaction) { txn in 
             NavigationStack {
                 AddTransactionView(manager: transactionManager, existingTransaction: txn)
+                    .environmentObject(firestoreManager)
             }
         }
         .toolbar {
-            NavigationLink(destination: AddTransactionView(manager: transactionManager)) {
-                Image(systemName: "plus")
+            ToolbarItem(placement: .navigationBarTrailing) {
+                NavigationLink(destination: AddTransactionView(manager: transactionManager)
+                    .environmentObject(firestoreManager)) {
+                    Image(systemName: "plus")
+                }
+            }
+            
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button(action: {
+                    authViewModel.logout()
+                }) {
+                    Image(systemName: "person.crop.circle.fill")
+                }
             }
         }
     }
@@ -134,6 +148,10 @@ struct HomeView: View {
         for index in offsets {
             let txnToDelete = group[index]
             transactionManager.deleteTransaction(txnToDelete)
+            
+            Task {
+                try? await firestoreManager.deleteTransaction(txnToDelete)
+            }
         }
     }
     private func getCurrentFilteredList() -> [Transaction] {

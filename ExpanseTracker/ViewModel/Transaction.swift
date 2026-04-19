@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import FirebaseFirestore
 
 enum TransactionType: String, CaseIterable, Identifiable, Codable, Equatable {
     case income = "Income"
@@ -15,13 +16,13 @@ enum TransactionType: String, CaseIterable, Identifiable, Codable, Equatable {
 }
 
 struct Transaction: Identifiable, Codable, Equatable {
-    let id: UUID
+    var id: String?
     let title: String
     let amount: Double
     let date: Date
     let type: TransactionType
     
-    init(id: UUID = UUID(), titile: String, amount: Double, date: Date, type: TransactionType) {
+    init(id: String? = UUID().uuidString, titile: String, amount: Double, date: Date, type: TransactionType) {
         self.id = id
         self.title = titile
         self.amount = amount
