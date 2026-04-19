@@ -7,29 +7,84 @@
 
 import Foundation
 
+import Foundation
+
 final class LLMService {
 
     static let shared = LLMService()
-
     private init() {}
 
-    // MARK: - Generate AI Insight
-    func generateInsight(from transactions: [Transaction]) async -> String {
+    // MARK: - Public API
+    func generateInsights(from transactions: [Transaction]) -> [String] {
         
-        // 🔴 MOCK RESPONSE (we’ll replace with real API later)
-        return generateMockInsight(from: transactions)
-    }
+        guard !transactions.isEmpty else {
+            return ["Start tracking your expenses to get insights."]
+        }
 
-    private func generateMockInsight(from transactions: [Transaction]) -> String {
-        
+        var insights: [String] = []
+
+        // 🔹 Monthly comparison
+        if let comparison = compareWithLastMonth(transactions) {
+            insights.append(comparison)
+        }
+
         let expenses = transactions.filter { $0.type == .expanse }
         let total = expenses.map { $0.amount }.reduce(0, +)
 
+        let categorySpending = Dictionary(grouping: expenses) { $0.category }
+            .mapValues { $0.map { $0.amount }.reduce(0, +) }
+
+        let topCategory = categorySpending.max { $0.value < $1.value }
+
+        // 🔹 High spending insight
         if total > 10000 {
-            return "You are spending quite heavily this month. Try reducing unnecessary expenses."
-        } else {
-            return "Your spending looks balanced. Keep maintaining this habit."
+            insights.append("You’ve been spending more than usual this month. Consider reducing unnecessary expenses.")
         }
+
+        // 🔹 Top category insight
+        if let top = topCategory {
+            insights.append("Most of your spending is on \(top.key.rawValue.capitalized). Try optimizing this category.")
+        }
+
+        // 🔹 Positive feedback
+        if total < 3000 {
+            insights.append("Great job! Your spending is well under control.")
+        }
+
+        return insights
+    }
+
+    // MARK: - Monthly Comparison
+    private func compareWithLastMonth(_ transactions: [Transaction]) -> String? {
+        
+        let calendar = Calendar.current
+
+        let currentMonth = transactions.filter {
+            calendar.isDate($0.date, equalTo: Date(), toGranularity: .month)
+        }
+
+        guard let lastMonthDate = calendar.date(byAdding: .month, value: -1, to: Date()) else {
+            return nil
+        }
+
+        let lastMonth = transactions.filter {
+            calendar.isDate($0.date, equalTo: lastMonthDate, toGranularity: .month)
+        }
+
+        let currentTotal = currentMonth.map { $0.amount }.reduce(0, +)
+        let lastTotal = lastMonth.map { $0.amount }.reduce(0, +)
+
+        guard lastTotal > 0 else { return nil }
+
+        let change = ((currentTotal - lastTotal) / lastTotal) * 100
+
+        if change > 20 {
+            return "Your spending increased by \(Int(change))% compared to last month."
+        } else if change < -20 {
+            return "Great! You reduced your spending by \(Int(abs(change)))% compared to last month."
+        }
+
+        return nil
     }
 }
 

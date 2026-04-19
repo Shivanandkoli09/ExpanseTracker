@@ -10,19 +10,13 @@ import Foundation
 final class HomeViewModel: ObservableObject {
 
     @Published var insights: [Insight] = []
-    @Published var aiInsight: String = ""
+    @Published var aiInsights: [String] = []   // ✅ plural
 
     func generateInsights(from transactions: [Transaction]) {
         insights = InsightGenerator.generateInsights(from: transactions)
     }
-    
-    func generateAIInsight(from transactions: [Transaction]) {
-        Task {
-            let result = await LLMService.shared.generateInsight(from: transactions)
-            
-            DispatchQueue.main.async {
-                self.aiInsight = result
-            }
-        }
+
+    func generateAIInsights(from transactions: [Transaction]) {
+        aiInsights = LLMService.shared.generateInsights(from: transactions)
     }
 }
