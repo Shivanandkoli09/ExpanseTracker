@@ -70,6 +70,7 @@ struct HomeView: View {
                 summaryCard()
 
                 InsightsScrollView(insights: viewModel.insights)
+                ShowAIInsightsView(aiInsight: viewModel.aiInsight)
 
                 Picker("Filter", selection: $selectedFilter) {
                     ForEach(TransactionFilter.allCases) { filter in
@@ -118,9 +119,11 @@ struct HomeView: View {
         // ✅ Lifecycle
         .onAppear {
             viewModel.generateInsights(from: transactionManager.transactions)
+            viewModel.generateAIInsight(from: transactionManager.transactions)
         }
         .onChange(of: transactionManager.transactions) { newValue in
             viewModel.generateInsights(from: newValue)
+            viewModel.generateAIInsight(from: newValue)
         }
 
         // ✅ Navigation
@@ -194,6 +197,27 @@ struct HomeView: View {
             return transactionManager.transactions.filter {
                 $0.type == .expanse
             }.sorted { $0.date > $1.date }
+        }
+    }
+    
+    struct ShowAIInsightsView: View {
+        let aiInsight: String
+        
+        var body: some View {
+            if !aiInsight.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("AI Insight")
+                        .font(.headline)
+                        .padding(.horizontal)
+
+                    Text(aiInsight)
+                        .font(.subheadline)
+                        .padding()
+                        .background(Color.purple.opacity(0.1))
+                        .cornerRadius(12)
+                        .padding(.horizontal)
+                }
+            }
         }
     }
     
