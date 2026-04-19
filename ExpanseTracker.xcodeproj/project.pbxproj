@@ -18,7 +18,7 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		4223ABDD2DF75C07002D2F29 /* ExpanseTracker */ = {
+		55A68D0F2F93D197004D3967 /* ExpanseTracker */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = ExpanseTracker;
 			sourceTree = "<group>";
@@ -43,7 +43,7 @@
 		4223ABD22DF75C07002D2F29 = {
 			isa = PBXGroup;
 			children = (
-				4223ABDD2DF75C07002D2F29 /* ExpanseTracker */,
+				55A68D0F2F93D197004D3967 /* ExpanseTracker */,
 				42E1BBC32E3DF24500161D14 /* Frameworks */,
 				4223ABDC2DF75C07002D2F29 /* Products */,
 			);
@@ -80,7 +80,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				4223ABDD2DF75C07002D2F29 /* ExpanseTracker */,
+				55A68D0F2F93D197004D3967 /* ExpanseTracker */,
 			);
 			name = ExpanseTracker;
 			packageProductDependencies = (

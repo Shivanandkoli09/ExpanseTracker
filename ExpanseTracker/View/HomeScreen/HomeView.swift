@@ -29,6 +29,8 @@ struct HomeView: View {
     @EnvironmentObject var authViewModel: SignInViewModel
     @EnvironmentObject var firestoreManager: FirestoreTransactionManager
     
+    @StateObject private var viewModel = HomeViewModel()
+    
     var filteredTransactions: [Transaction] {
         let filtered: [Transaction]
         
@@ -61,61 +63,87 @@ struct HomeView: View {
         
     }
     var body: some View {
-        VStack {
-            summaryCard()
-            
-            Picker("Filter", selection: $selectedFilter) {
-                ForEach(TransactionFilter.allCases) { filter in
-                    Text(filter.rawValue).tag(filter)
+        List {
+
+            // 🔹 Header Section (Summary + Insights + Filter)
+            Section {
+                summaryCard()
+
+                InsightsScrollView(insights: viewModel.insights)
+
+                Picker("Filter", selection: $selectedFilter) {
+                    ForEach(TransactionFilter.allCases) { filter in
+                        Text(filter.rawValue).tag(filter)
+                    }
                 }
+                .pickerStyle(.segmented)
             }
-            .pickerStyle(.segmented)
-            .padding(.horizontal)
-            
-            List {
-                ForEach(groupedTransactions, id: \.0) { (month, transactions) in
-                    Section(header: Text(month).font(.headline)) {
-                        ForEach(transactions) { txn in
-                            TransactionRowView(txn: txn)
-                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                    Button(role: .destructive) {
-                                        if let index = transactions.firstIndex(where: { $0.id == txn.id }) {
-                                            deleteTransaction(from: transactions, at: IndexSet(integer: index))
-                                        }
-                                    } label: {
-                                        Label("Delete", systemImage: "trash")
+
+            // 🔹 Transactions Section
+            ForEach(groupedTransactions, id: \.0) { (month, transactions) in
+                Section(header: Text(month).font(.headline)) {
+                    ForEach(transactions) { txn in
+                        TransactionRowView(txn: txn)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+
+                                Button(role: .destructive) {
+                                    if let index = transactions.firstIndex(where: { $0.id == txn.id }) {
+                                        deleteTransaction(from: transactions, at: IndexSet(integer: index))
                                     }
-                                    
-                                    Button {
-                                        selectedTransaction = txn
-                                        isEditing = true // Trigger your edit flow
-                                    } label: {
-                                        Label("Edit", systemImage: "pencil")
-                                    }
-                                    .tint(.blue)
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
                                 }
-                        }
+
+                                Button {
+                                    selectedTransaction = txn
+                                    isEditing = true
+                                } label: {
+                                    Label("Edit", systemImage: "pencil")
+                                }
+                                .tint(.blue)
+                            }
                     }
                 }
             }
-            .listStyle(.insetGrouped)
-            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Search Transaction")
         }
+        .listStyle(.insetGrouped)
+
+        // ✅ Attach searchable to MAIN container (fixes your issue)
+        .searchable(
+            text: $searchText,
+            placement: .navigationBarDrawer(displayMode: .automatic),
+            prompt: "Search Transaction"
+        )
+
+        // ✅ Lifecycle
+        .onAppear {
+            viewModel.generateInsights(from: transactionManager.transactions)
+        }
+        .onChange(of: transactionManager.transactions) { newValue in
+            viewModel.generateInsights(from: newValue)
+        }
+
+        // ✅ Navigation
         .navigationBarTitle("MyMoney", displayMode: .inline)
-        .sheet(item: $selectedTransaction) { txn in 
+
+        .sheet(item: $selectedTransaction) { txn in
             NavigationStack {
                 AddTransactionView(manager: transactionManager, existingTransaction: txn)
                     .environmentObject(firestoreManager)
             }
         }
+
+        // ✅ Toolbar
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                NavigationLink(destination: AddTransactionView(manager: transactionManager)
-                    .environmentObject(firestoreManager)) {
+                NavigationLink(
+                    destination: AddTransactionView(manager: transactionManager)
+                        .environmentObject(firestoreManager)
+                ) {
                     Image(systemName: "plus")
                 }
             }
-            
+
             ToolbarItem(placement: .navigationBarLeading) {
                 Button(action: {
                     authViewModel.logout()
@@ -169,6 +197,25 @@ struct HomeView: View {
         }
     }
     
+    struct InsightsScrollView: View {
+
+        let insights: [Insight]
+
+        var body: some View {
+            if !insights.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(insights) { insight in
+                            InsightCardView(insight: insight)
+                                .frame(width: 220)
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+            }
+        }
+    }
+
     private func summaryCard() -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Total Balance")

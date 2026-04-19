@@ -13,6 +13,9 @@ struct AddTransactionView: View {
     @ObservedObject var manager: TransactionManager
     @EnvironmentObject var firestoreManager: FirestoreTransactionManager
     
+    @State private var suggestedType: TransactionType = .expanse
+    @State private var suggestedCategory: TransactionCategory = .other
+    
     var existingTransaction: Transaction?
 
     @State private var title: String
@@ -43,13 +46,46 @@ struct AddTransactionView: View {
             VStack {
                 Form {
                     Section(header: Text("Details").foregroundColor(.secondary)) {
+                        
+                        // ✅ Title Field with AI detection
                         TextField("Title", text: $title)
                             .textInputAutocapitalization(.words)
                             .padding(.vertical, 4)
+                            .onChange(of: title) { newValue in
+                                let prediction = AITransactionClassifier.shared.predict(title: newValue)
+                                suggestedType = prediction.type
+                                suggestedCategory = prediction.category
+
+                                // Auto update type
+                                type = prediction.type
+                            }
+
+                        // ✅ AI Suggestion UI
+                        if !title.isEmpty {
+                            HStack {
+                                Text("AI Suggestion:")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+
+                                Text(suggestedCategory.rawValue.capitalized)
+                                    .font(.caption)
+                                    .foregroundColor(.blue)
+
+                                Text("• \(suggestedType.rawValue)")
+                                    .font(.caption)
+                                    .foregroundColor(.green)
+                            }
+                        }
 
                         TextField("Amount", text: $amount)
                             .keyboardType(.decimalPad)
                             .padding(.vertical, 4)
+                        
+                        Picker("Category", selection: $suggestedCategory) {
+                            ForEach(TransactionCategory.allCases, id: \.self) { category in
+                                Text(category.rawValue.capitalized).tag(category)
+                            }
+                        }
 
                         Picker("Type", selection: $type) {
                             ForEach(TransactionType.allCases) { t in
@@ -62,6 +98,18 @@ struct AddTransactionView: View {
 
                     Section {
                         Button(action: {
+                            // Save user correction
+                            let prediction = AITransactionClassifier.shared.predict(title: title)
+
+                            // Save ONLY if user changed AI suggestion
+                            let words = title.lowercased().split(separator: " ")
+
+                            if let firstWord = words.first {
+                                UserPreferenceStore.shared.savePreference(
+                                    keyword: String(firstWord),
+                                    category: suggestedCategory
+                                )
+                            }
                             let amt = Double(amount) ?? 0
                             if let existing = existingTransaction {
                                 let updatedTxn = Transaction(
@@ -69,7 +117,8 @@ struct AddTransactionView: View {
                                     titile: title,
                                     amount: amt,
                                     date: date,
-                                    type: type
+                                    type: type,
+                                    category: suggestedCategory   // ✅ AI category
                                 )
 
                                 manager.updateTransaction(updatedTxn)
@@ -83,7 +132,8 @@ struct AddTransactionView: View {
                                     titile: title,
                                     amount: amt,
                                     date: date,
-                                    type: type
+                                    type: type,
+                                    category: suggestedCategory   // ✅ AI category
                                 )
 
                                 // Add to Core Data
@@ -91,7 +141,8 @@ struct AddTransactionView: View {
                                     title: txn.title,
                                     amount: txn.amount,
                                     date: txn.date,
-                                    type: txn.type
+                                    type: txn.type,
+                                    category: txn.category
                                 )
 
                             }
