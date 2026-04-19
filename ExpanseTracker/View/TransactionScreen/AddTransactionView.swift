@@ -102,9 +102,11 @@ struct AddTransactionView: View {
                             let prediction = AITransactionClassifier.shared.predict(title: title)
 
                             // Save ONLY if user changed AI suggestion
-                            if prediction.category != suggestedCategory {
+                            let words = title.lowercased().split(separator: " ")
+
+                            if let firstWord = words.first {
                                 UserPreferenceStore.shared.savePreference(
-                                    keyword: title,
+                                    keyword: String(firstWord),
                                     category: suggestedCategory
                                 )
                             }

@@ -15,9 +15,13 @@ final class AITransactionClassifier {
 
     func predict(title: String) -> (type: TransactionType, category: TransactionCategory) {
         
-        // ✅ Check user-learned preference first
-        if let learnedCategory = UserPreferenceStore.shared.getPreference(for: title) {
-            return (.expanse, learnedCategory)
+        // ✅ Check learned preferences (partial match)
+        let words = title.lowercased().split(separator: " ")
+
+        for word in words {
+            if let learnedCategory = UserPreferenceStore.shared.getPreference(for: String(word)) {
+                return (.expanse, learnedCategory)
+            }
         }
         
         let lowercased = title.lowercased()
