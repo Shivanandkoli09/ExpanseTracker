@@ -42,9 +42,9 @@ final class InsightGenerator {
             let change = ((thisMonthTotal - lastMonthTotal) / lastMonthTotal) * 100
             
             if change > 0 {
-                insights.append(Insight(message: "You spent \(Int(change))% more than last month"))
+                insights.append(Insight(message: "You spent \(Int(change))% more than last month", type: .warning))
             } else if change < 0 {
-                insights.append(Insight(message: "You spent \(Int(abs(change)))% less than last month"))
+                insights.append(Insight(message: "You spent \(Int(abs(change)))% less than last month", type: .positive))
             }
         }
 
@@ -57,7 +57,7 @@ final class InsightGenerator {
         // Highest spending category
         if let topCategory = categoryTotals.max(by: { $0.value < $1.value }) {
             insights.append(
-                Insight(message: "You spent most on \(topCategory.key.rawValue.capitalized)")
+                Insight(message: "You spent most on \(topCategory.key.rawValue.capitalized)", type: .info)
             )
         }
 
@@ -67,7 +67,7 @@ final class InsightGenerator {
 
         if let frequentCategory = categoryCounts.max(by: { $0.value < $1.value }) {
             insights.append(
-                Insight(message: "\(frequentCategory.key.rawValue.capitalized) is your most frequent expense")
+                Insight(message: "\(frequentCategory.key.rawValue.capitalized) is your most frequent expense", type: .info)
             )
         }
 
@@ -76,21 +76,21 @@ final class InsightGenerator {
         if days > 0 {
             let avg = thisMonthTotal / Double(days)
             insights.append(
-                Insight(message: "Your average daily spend is ₹\(Int(avg))")
+                Insight(message: "Your average daily spend is ₹\(Int(avg))", type: .info)
             )
         }
 
         // MARK: - Largest Expense
         if let maxTxn = expenses.max(by: { $0.amount < $1.amount }) {
             insights.append(
-                Insight(message: "Your biggest expense was ₹\(Int(maxTxn.amount)) on \(maxTxn.category.rawValue.capitalized)")
+                Insight(message: "Your biggest expense was ₹\(Int(maxTxn.amount)) on \(maxTxn.category.rawValue.capitalized)", type: .info)
             )
         }
 
         // MARK: - Simple Spending Warning
         if thisMonthTotal > 0 && thisMonthTotal > (lastMonthTotal * 1.5) {
             insights.append(
-                Insight(message: "⚠️ Your spending increased significantly this month")
+                Insight(message: "⚠️ Your spending increased significantly this month", type: .warning)
             )
         }
 

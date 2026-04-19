@@ -198,18 +198,16 @@ struct HomeView: View {
     }
     
     struct InsightsScrollView: View {
+
         let insights: [Insight]
-        
+
         var body: some View {
             if !insights.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
                         ForEach(insights) { insight in
-                            Text(insight.message)
-                                .font(.caption)
-                                .padding()
-                                .background(Color.blue.opacity(0.1))
-                                .cornerRadius(10)
+                            InsightCardView(insight: insight)
+                                .frame(width: 220)
                         }
                     }
                     .padding(.horizontal)
