@@ -16,6 +16,12 @@ struct ExpanseTrackerApp: App {
     let persistenceController = PersistenceController()
     @StateObject private var authviewModel = SignInViewModel()
     
+    init() {
+
+        NotificationManager.shared.requestPermission()
+        NotificationManager.shared.scheduleDailyExpenseReminder()
+    }
+    
     var body: some Scene {
         WindowGroup {
             let context = persistenceController.container.viewContext
