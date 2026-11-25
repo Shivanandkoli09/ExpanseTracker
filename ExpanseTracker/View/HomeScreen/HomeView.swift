@@ -68,8 +68,10 @@ struct HomeView: View {
             // 🔹 Header Section (Summary + Insights + Filter)
             Section {
                 summaryCard()
+                
 
                 InsightsScrollView(insights: viewModel.insights)
+                ShowAIInsightsView(aiInsights: viewModel.aiInsights)
 
                 Picker("Filter", selection: $selectedFilter) {
                     ForEach(TransactionFilter.allCases) { filter in
@@ -118,9 +120,12 @@ struct HomeView: View {
         // ✅ Lifecycle
         .onAppear {
             viewModel.generateInsights(from: transactionManager.transactions)
+            viewModel.generateAIInsights(from: transactionManager.transactions)
         }
+
         .onChange(of: transactionManager.transactions) { newValue in
             viewModel.generateInsights(from: newValue)
+            viewModel.generateAIInsights(from: newValue)
         }
 
         // ✅ Navigation
@@ -196,6 +201,36 @@ struct HomeView: View {
             }.sorted { $0.date > $1.date }
         }
     }
+    
+    struct ShowAIInsightsView: View {
+        let aiInsights: [String]
+        
+        var body: some View {
+            if !aiInsights.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(aiInsights.count == 1 ? "AI Insight" : "AI Insights")
+                        .font(.headline)
+                        .padding(.horizontal)
+
+                    if aiInsights.count == 1 {
+                        Text(aiInsights.first!)
+                            .font(.subheadline)
+                            .padding()
+                            .background(Color.purple.opacity(0.1))
+                            .cornerRadius(12)
+                            .padding(.horizontal)
+                    } else {
+                        ForEach(aiInsights, id: \.self) { insight in
+                            Text("• \(insight)")
+                                .font(.subheadline)
+                                .padding(.horizontal)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     
     struct InsightsScrollView: View {
 
