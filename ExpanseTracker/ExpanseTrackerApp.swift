@@ -16,12 +16,6 @@ struct ExpanseTrackerApp: App {
     let persistenceController = PersistenceController()
     @StateObject private var authviewModel = SignInViewModel()
     
-    init() {
-
-        NotificationManager.shared.requestPermission()
-        NotificationManager.shared.scheduleDailyExpenseReminder()
-    }
-    
     var body: some Scene {
         WindowGroup {
             let context = persistenceController.container.viewContext
@@ -39,13 +33,18 @@ struct ExpanseTrackerApp: App {
                             .environmentObject(firestoreManager)
                             .environmentObject(authviewModel)
                     }
-                } else {
-                    NavigationStack {
-                        LoginView()
-                            .environmentObject(authviewModel)
+                    .task {
+                        // Ask only once the user is signed in and has context for why.
+                        NotificationManager.shared.requestPermission()
+                        NotificationManager.shared.scheduleDailyExpenseReminder()
                     }
+                } else {
+                    AuthView()
+                        .environmentObject(authviewModel)
+                        .transition(.opacity)
                 }
             }
+            .animation(.easeInOut(duration: 0.3), value: authviewModel.isLoggedIn)
         }
     }
 }
