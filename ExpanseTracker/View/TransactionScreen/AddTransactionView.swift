@@ -8,166 +8,170 @@
 import SwiftUI
 
 struct AddTransactionView: View {
-    @Environment(\.dismiss) var dismiss
+    @Environment(\.dismiss) private var dismiss
 
     @ObservedObject var manager: TransactionManager
-    @EnvironmentObject var firestoreManager: FirestoreTransactionManager
-    
-    @State private var suggestedType: TransactionType = .expanse
-    @State private var suggestedCategory: TransactionCategory = .other
-    
-    var existingTransaction: Transaction?
+    let existingTransaction: Transaction?
 
     @State private var title: String
     @State private var amount: String
     @State private var date: Date
     @State private var type: TransactionType
+    @State private var category: TransactionCategory
+
+    /// Once the user picks a value themselves, AI suggestions stop overwriting it.
+    @State private var userChoseCategory: Bool
+    @State private var userChoseType: Bool
+
+    @FocusState private var focusedField: FieldFocus?
 
     init(manager: TransactionManager, existingTransaction: Transaction? = nil) {
         self.manager = manager
         self.existingTransaction = existingTransaction
 
-        if let txn = existingTransaction {
-            _title = State(initialValue: txn.title)
-            _amount = State(initialValue: "\(txn.amount)")
-            _date = State(initialValue: txn.date)
-            _type = State(initialValue: txn.type)
-        } else {
-            _title = State(initialValue: "")
-            _amount = State(initialValue: "")
-            _date = State(initialValue: Date())
-            _type = State(initialValue: .expanse)
+        let txn = existingTransaction
+        _title = State(initialValue: txn?.title ?? "")
+        _amount = State(initialValue: txn.map { Self.amountString($0.amount) } ?? "")
+        _date = State(initialValue: txn?.date ?? Date())
+        _type = State(initialValue: txn?.type ?? .expense)
+        _category = State(initialValue: txn?.category ?? .other)
+        _userChoseCategory = State(initialValue: txn != nil)
+        _userChoseType = State(initialValue: txn != nil)
+    }
+
+    private var isEditing: Bool { existingTransaction != nil }
+
+    private var trimmedTitle: String {
+        title.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var parsedAmount: Double? {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        let value = formatter.number(from: amount)?.doubleValue ?? Double(amount)
+        guard let value, value > 0 else { return nil }
+        return value
+    }
+
+    private var canSave: Bool { !trimmedTitle.isEmpty && parsedAmount != nil }
+
+    var body: some View {
+        Form {
+            Section("Details") {
+                TextField("Title (e.g. Swiggy dinner)", text: $title)
+                    .textInputAutocapitalization(.words)
+                    .focused($focusedField, equals: .title)
+                    .submitLabel(.next)
+                    .onSubmit { focusedField = .amount }
+                    .onChange(of: title) { _, newValue in
+                        applySuggestion(for: newValue)
+                    }
+
+                if !trimmedTitle.isEmpty && !userChoseCategory {
+                    Label {
+                        Text("Auto-categorised as **\(category.rawValue.capitalized)** · \(type.rawValue)")
+                    } icon: {
+                        Image(systemName: "sparkles")
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+
+                TextField("Amount", text: $amount)
+                    .keyboardType(.decimalPad)
+                    .focused($focusedField, equals: .amount)
+
+                Picker("Category", selection: Binding(
+                    get: { category },
+                    set: { category = $0; userChoseCategory = true }
+                )) {
+                    ForEach(TransactionCategory.allCases, id: \.self) { category in
+                        Text(category.rawValue.capitalized).tag(category)
+                    }
+                }
+
+                Picker("Type", selection: Binding(
+                    get: { type },
+                    set: { type = $0; userChoseType = true }
+                )) {
+                    ForEach(TransactionType.allCases) { type in
+                        Text(type.rawValue).tag(type)
+                    }
+                }
+
+                DatePicker("Date", selection: $date, displayedComponents: .date)
+            }
+
+            Section {
+                Button(action: save) {
+                    Text(isEditing ? "Update Transaction" : "Add Transaction")
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                }
+                .disabled(!canSave)
+            }
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .navigationTitle(isEditing ? "Edit Transaction" : "Add Transaction")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") { focusedField = nil }
+            }
+        }
+        .onAppear {
+            if !isEditing { focusedField = .title }
         }
     }
 
-    var body: some View {
-        ZStack {
-            Color(.systemGroupedBackground).ignoresSafeArea()
-            VStack {
-                Form {
-                    Section(header: Text("Details").foregroundColor(.secondary)) {
-                        
-                        // ✅ Title Field with AI detection
-                        TextField("Title", text: $title)
-                            .textInputAutocapitalization(.words)
-                            .padding(.vertical, 4)
-                            .onChange(of: title) { newValue in
-                                let prediction = AITransactionClassifier.shared.predict(title: newValue)
-                                suggestedType = prediction.type
-                                suggestedCategory = prediction.category
+    // MARK: - Actions
 
-                                // Auto update type
-                                type = prediction.type
-                            }
+    private func applySuggestion(for title: String) {
+        let prediction = AITransactionClassifier.shared.predict(title: title)
+        if !userChoseCategory { category = prediction.category }
+        if !userChoseType { type = prediction.type }
+    }
 
-                        // ✅ AI Suggestion UI
-                        if !title.isEmpty {
-                            HStack {
-                                Text("AI Suggestion:")
-                                    .font(.caption)
-                                    .foregroundColor(.gray)
+    private func save() {
+        guard let value = parsedAmount, !trimmedTitle.isEmpty else { return }
 
-                                Text(suggestedCategory.rawValue.capitalized)
-                                    .font(.caption)
-                                    .foregroundColor(.blue)
-
-                                Text("• \(suggestedType.rawValue)")
-                                    .font(.caption)
-                                    .foregroundColor(.green)
-                            }
-                        }
-
-                        TextField("Amount", text: $amount)
-                            .keyboardType(.decimalPad)
-                            .padding(.vertical, 4)
-                        
-                        Picker("Category", selection: $suggestedCategory) {
-                            ForEach(TransactionCategory.allCases, id: \.self) { category in
-                                Text(category.rawValue.capitalized).tag(category)
-                            }
-                        }
-
-                        Picker("Type", selection: $type) {
-                            ForEach(TransactionType.allCases) { t in
-                                Text(t.rawValue.capitalized).tag(t)
-                            }
-                        }
-
-                        DatePicker("Date", selection: $date, displayedComponents: .date)
-                    }
-
-                    Section {
-                        Button(action: {
-                            // Save user correction
-                            let prediction = AITransactionClassifier.shared.predict(title: title)
-
-                            // Save ONLY if user changed AI suggestion
-                            let words = title.lowercased().split(separator: " ")
-
-                            if let firstWord = words.first {
-                                UserPreferenceStore.shared.savePreference(
-                                    keyword: String(firstWord),
-                                    category: suggestedCategory
-                                )
-                            }
-                            let amt = Double(amount) ?? 0
-                            if let existing = existingTransaction {
-                                let updatedTxn = Transaction(
-                                    id: existing.id,
-                                    titile: title,
-                                    amount: amt,
-                                    date: date,
-                                    type: type,
-                                    category: suggestedCategory   // ✅ AI category
-                                )
-
-                                manager.updateTransaction(updatedTxn)
-
-                                Task {
-                                    try? await firestoreManager.updateTransaction(updatedTxn)
-                                }
-                            } else {
-                                let txn = Transaction(
-                                    id: UUID().uuidString,
-                                    titile: title,
-                                    amount: amt,
-                                    date: date,
-                                    type: type,
-                                    category: suggestedCategory   // ✅ AI category
-                                )
-
-                                // Add to Core Data
-                                manager.addTransaction(
-                                    title: txn.title,
-                                    amount: txn.amount,
-                                    date: txn.date,
-                                    type: txn.type,
-                                    category: txn.category
-                                )
-
-                            }
-
-                            dismiss()
-                        }) {
-                            HStack {
-                                Spacer()
-                                Text(existingTransaction == nil ? "Add Transaction" : "Update Transaction")
-                                    .fontWeight(.semibold)
-                                Spacer()
-                            }
-                        }
-                        .disabled(title.isEmpty || amount.isEmpty)
-                    }
-                }
-                .modifier(KeyboardDismissModifier())
-                .navigationTitle(existingTransaction == nil ? "Add Transaction" : "Edit Transaction")
-                .navigationBarTitleDisplayMode(.inline)
-            }
+        // Learn only from real corrections, keyed on the most meaningful word.
+        let prediction = AITransactionClassifier.shared.predict(title: trimmedTitle)
+        if userChoseCategory,
+           category != prediction.category,
+           let keyword = AITransactionClassifier.keyword(in: trimmedTitle) {
+            UserPreferenceStore.shared.savePreference(keyword: keyword, category: category)
         }
+
+        let txn = Transaction(
+            id: existingTransaction?.id ?? UUID().uuidString,
+            title: trimmedTitle,
+            amount: value,
+            date: date,
+            type: type,
+            category: category
+        )
+
+        if isEditing {
+            manager.update(txn)
+        } else {
+            manager.add(txn)
+        }
+        dismiss()
+    }
+
+    private static func amountString(_ value: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.usesGroupingSeparator = false
+        formatter.maximumFractionDigits = 2
+        return formatter.string(from: NSNumber(value: value)) ?? "\(value)"
     }
 }
 
 #Preview {
-    let context = PersistenceController.shared.container.viewContext
-    return AddTransactionView(manager: TransactionManager(context: context))
+    NavigationStack {
+        AddTransactionView(manager: TransactionManager(context: PersistenceController(inMemory: true).container.viewContext))
+    }
 }

@@ -11,7 +11,7 @@ enum TransactionFilter: String, CaseIterable, Identifiable {
     
     case all = "All"
     case income = "Income"
-    case expanse = "Expense"
+    case expense = "Expense"
     
     var id: String {
         self.rawValue
@@ -19,15 +19,13 @@ enum TransactionFilter: String, CaseIterable, Identifiable {
 }
 
 struct HomeView: View {
-    @State private var transactions: [Transaction] = []
     @State private var selectedFilter: TransactionFilter = .all
     @State private var selectedTransaction: Transaction?
     @State private var isEditing: Bool = false
     @State private var searchText: String = ""
     
-    @EnvironmentObject  var transactionManager: TransactionManager
+    @EnvironmentObject var transactionManager: TransactionManager
     @EnvironmentObject var authViewModel: SignInViewModel
-    @EnvironmentObject var firestoreManager: FirestoreTransactionManager
     
     @StateObject private var viewModel = HomeViewModel()
     
@@ -41,9 +39,9 @@ struct HomeView: View {
             filtered = transactionManager.transactions.filter {
                 $0.type == .income
             }
-        case .expanse:
+        case .expense:
             filtered = transactionManager.transactions.filter {
-                $0.type == .expanse
+                $0.type == .expense
             }
         }
         
@@ -123,7 +121,7 @@ struct HomeView: View {
             viewModel.generateAIInsights(from: transactionManager.transactions)
         }
 
-        .onChange(of: transactionManager.transactions) { newValue in
+        .onChange(of: transactionManager.transactions) { _, newValue in
             viewModel.generateInsights(from: newValue)
             viewModel.generateAIInsights(from: newValue)
         }
@@ -134,7 +132,6 @@ struct HomeView: View {
         .sheet(item: $selectedTransaction) { txn in
             NavigationStack {
                 AddTransactionView(manager: transactionManager, existingTransaction: txn)
-                    .environmentObject(firestoreManager)
             }
         }
 
@@ -143,7 +140,6 @@ struct HomeView: View {
             ToolbarItem(placement: .navigationBarTrailing) {
                 NavigationLink(
                     destination: AddTransactionView(manager: transactionManager)
-                        .environmentObject(firestoreManager)
                 ) {
                     Image(systemName: "plus")
                 }
@@ -166,39 +162,20 @@ struct HomeView: View {
             .reduce(0, +)
     }
     
-    private var totalExpanse: Double {
+    private var totalExpense: Double {
         transactionManager.transactions
-            .filter { $0.type == .expanse }
+            .filter { $0.type == .expense }
             .map { $0.amount }
             .reduce(0, +)
     }
     
     private func calculateBalance() -> Double {
-        totalIncome - totalExpanse
+        totalIncome - totalExpense
     }
     
     private func deleteTransaction(from group: [Transaction], at offsets: IndexSet) {
         for index in offsets {
-            let txnToDelete = group[index]
-            transactionManager.deleteTransaction(txnToDelete)
-            
-            Task {
-                try? await firestoreManager.deleteTransaction(txnToDelete)
-            }
-        }
-    }
-    private func getCurrentFilteredList() -> [Transaction] {
-        switch selectedFilter {
-        case .all:
-            return transactionManager.transactions.sorted { $0.date > $1.date }
-        case .income:
-            return transactionManager.transactions.filter {
-                $0.type == .income
-            }.sorted { $0.date > $1.date }
-        case .expanse:
-            return transactionManager.transactions.filter {
-                $0.type == .expanse
-            }.sorted { $0.date > $1.date }
+            transactionManager.delete(group[index])
         }
     }
     
@@ -267,7 +244,7 @@ struct HomeView: View {
                     Text("Income")
                         .font(.subheadline)
                         .foregroundColor(.green)
-                    Text("\u{20B9}\(totalIncome, specifier: "%2.f")")
+                    Text("\u{20B9}\(totalIncome, specifier: "%.2f")")
                         .font(.headline)
                 }
                 Spacer()
@@ -276,7 +253,7 @@ struct HomeView: View {
                     Text("Expense")
                         .font(.subheadline)
                         .foregroundColor(.red)
-                    Text("\u{20B9}\(totalExpanse, specifier: "%2.f")")
+                    Text("\u{20B9}\(totalExpense, specifier: "%.2f")")
                         .font(.headline)
                 }
                 

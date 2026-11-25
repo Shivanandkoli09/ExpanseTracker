@@ -1,81 +1,101 @@
+//
+//  TransactionManager.swift
+//  ExpanseTracker
+//
+
 import Foundation
 import CoreData
-import SwiftUI
 
-class TransactionManager: ObservableObject {
+/// Single source of truth for transactions.
+/// Core Data gives instant, offline-capable UI; Firestore is the cloud copy.
+/// Every add / update / delete goes through here so both stay in step.
+@MainActor
+final class TransactionManager: ObservableObject {
+
+    @Published private(set) var transactions: [Transaction] = []
+
     private let context: NSManagedObjectContext
-    private weak var firestoreManager: FirestoreTransactionManager?
+    private let remote: FirestoreTransactionManager?
 
-    @Published var transactions: [Transaction] = []
-
-    init(context: NSManagedObjectContext, firestoreManager: FirestoreTransactionManager? = nil) {
+    init(context: NSManagedObjectContext, remote: FirestoreTransactionManager? = nil) {
         self.context = context
-        self.firestoreManager = firestoreManager
+        self.remote = remote
         fetchTransactions()
-        firestoreManager?.onTransactionSynced = { [weak self]  transactions in
-            self?.syncFromFirestore(transactions)
-        }
-    }
-    
-    private func syncFromFirestore(_ remoteTransactions: [Transaction]) {
-        let fetchRequest: NSFetchRequest<TransactionEntity> = TransactionEntity.fetchRequest()
 
-        do {
-            let existingEntities = try context.fetch(fetchRequest)
-
-            // Map existing by ID for quick lookup
-            var existingMap: [String: TransactionEntity] = Dictionary(uniqueKeysWithValues: existingEntities.compactMap {
-                guard let id = $0.id else { return nil }
-                return (id, $0)
-            })
-
-
-            for txn in remoteTransactions {
-                guard let id = txn.id else { continue }
-
-                if let entity = existingMap[id] {
-                    // Update existing
-                    entity.title = txn.title
-                    entity.amount = txn.amount
-                    entity.date = txn.date
-                    entity.type = txn.type.rawValue
-                    existingMap.removeValue(forKey: id)
-                } else {
-                    // New transaction from Firestore
-                    let newEntity = TransactionEntity(context: context)
-                    newEntity.id = id
-                    newEntity.title = txn.title
-                    newEntity.amount = txn.amount
-                    newEntity.date = txn.date
-                    newEntity.type = txn.type.rawValue
-                }
+        remote?.startListening { [weak self] remoteTransactions in
+            Task { @MainActor in
+                self?.syncFromRemote(remoteTransactions)
             }
-
-            // Optional: delete leftover entities not in Firestore (if desired)
-            // for entity in existingMap.values {
-            //     context.delete(entity)
-            // }
-
-            try context.save()
-            fetchTransactions()
-        } catch {
-            print("Failed to sync from Firestore: \(error)")
         }
     }
+
+    // MARK: - CRUD
+
+    func add(_ txn: Transaction) {
+        upsertLocal(txn)
+        saveAndReload()
+        pushToRemote { try $0.save(txn) }
+    }
+
+    func update(_ txn: Transaction) {
+        upsertLocal(txn)
+        saveAndReload()
+        pushToRemote { try $0.save(txn) }
+    }
+
+    func delete(_ txn: Transaction) {
+        if let id = txn.id, let entity = entity(withID: id) {
+            context.delete(entity)
+            saveAndReload()
+        }
+        pushToRemote { try await $0.delete(txn) }
+    }
+
+    // MARK: - Remote → Local
+
+    /// Makes Core Data mirror the remote list exactly (adds, updates and deletes).
+    private func syncFromRemote(_ remoteTransactions: [Transaction]) {
+        let entities = (try? context.fetch(TransactionEntity.fetchRequest())) ?? []
+
+        var localByID: [String: TransactionEntity] = [:]
+        for entity in entities {
+            guard let id = entity.id else { continue }
+            if localByID[id] != nil {
+                context.delete(entity) // duplicate row
+            } else {
+                localByID[id] = entity
+            }
+        }
+
+        var remoteIDs = Set<String>()
+        for txn in remoteTransactions {
+            guard let id = txn.id else { continue }
+            remoteIDs.insert(id)
+            let entity = localByID[id] ?? TransactionEntity(context: context)
+            apply(txn, to: entity)
+        }
+
+        for (id, entity) in localByID where !remoteIDs.contains(id) {
+            context.delete(entity)
+        }
+
+        saveAndReload()
+    }
+
+    // MARK: - Core Data helpers
 
     func fetchTransactions() {
-        let request: NSFetchRequest<TransactionEntity> = TransactionEntity.fetchRequest()
+        let request = TransactionEntity.fetchRequest()
         request.sortDescriptors = [NSSortDescriptor(key: "date", ascending: false)]
 
         do {
-            let entities = try context.fetch(request)
-            self.transactions = entities.map { entity in
+            transactions = try context.fetch(request).map { entity in
                 Transaction(
                     id: entity.id ?? UUID().uuidString,
-                    titile: entity.title ?? "",
+                    title: entity.title ?? "",
                     amount: entity.amount,
                     date: entity.date ?? Date(),
-                    type: TransactionType(rawValue: entity.type ?? "expense") ?? .expanse,
+                    type: TransactionType(rawValue: entity.type ?? "") ?? .expense,
                     category: TransactionCategory(rawValue: entity.category ?? "") ?? .other
                 )
             }
@@ -84,69 +104,47 @@ class TransactionManager: ObservableObject {
         }
     }
 
-    func addTransaction(title: String, amount: Double, date: Date, type: TransactionType, category: TransactionCategory) {
-        let newEntity = TransactionEntity(context: context)
-        newEntity.id = UUID().uuidString
-        newEntity.title = title
-        newEntity.amount = amount
-        newEntity.date = date
-        newEntity.type = type.rawValue
-        newEntity.category = category.rawValue   // ✅ ADD THIS
-
-        saveContext()
-        let txn = Transaction(
-            id: newEntity.id ?? UUID().uuidString,
-            titile: title,
-            amount: amount,
-            date: date,
-            type: type,
-            category: category   // ✅ ADD THIS
-        )
-        Task {
-            try? await firestoreManager?.addTransaction(txn)
-        }
-//        fetchTransactions()
+    private func upsertLocal(_ txn: Transaction) {
+        let id = txn.id ?? UUID().uuidString
+        let entity = entity(withID: id) ?? TransactionEntity(context: context)
+        var txn = txn
+        txn.id = id
+        apply(txn, to: entity)
     }
 
-    func updateTransaction(_ transaction: Transaction) {
-        let request: NSFetchRequest<TransactionEntity> = TransactionEntity.fetchRequest()
-        request.predicate = NSPredicate(format: "id == %@", transaction.id ?? "")
-
-        do {
-            if let entity = try context.fetch(request).first {
-                entity.title = transaction.title
-                entity.amount = transaction.amount
-                entity.date = transaction.date
-                entity.type = transaction.type.rawValue
-
-                saveContext()
-                fetchTransactions()
-            }
-        } catch {
-            print("Update failed: \(error)")
-        }
+    private func apply(_ txn: Transaction, to entity: TransactionEntity) {
+        entity.id = txn.id
+        entity.title = txn.title
+        entity.amount = txn.amount
+        entity.date = txn.date
+        entity.type = txn.type.rawValue
+        entity.category = txn.category.rawValue
     }
 
-    func deleteTransaction(_ transaction: Transaction) {
-        let request: NSFetchRequest<TransactionEntity> = TransactionEntity.fetchRequest()
-        request.predicate = NSPredicate(format: "id == %@", transaction.id ?? "")
-
-        do {
-            if let entity = try context.fetch(request).first {
-                context.delete(entity)
-                saveContext()
-                fetchTransactions()
-            }
-        } catch {
-            print("Delete failed: \(error)")
-        }
+    private func entity(withID id: String) -> TransactionEntity? {
+        let request = TransactionEntity.fetchRequest()
+        request.predicate = NSPredicate(format: "id == %@", id)
+        request.fetchLimit = 1
+        return try? context.fetch(request).first
     }
 
-    private func saveContext() {
+    private func saveAndReload() {
         do {
-            try context.save()
+            if context.hasChanges { try context.save() }
         } catch {
             print("Save failed: \(error)")
+        }
+        fetchTransactions()
+    }
+
+    private func pushToRemote(_ operation: @escaping (FirestoreTransactionManager) async throws -> Void) {
+        guard let remote else { return }
+        Task {
+            do {
+                try await operation(remote)
+            } catch {
+                print("☁️ Remote sync failed: \(error)")
+            }
         }
     }
 }

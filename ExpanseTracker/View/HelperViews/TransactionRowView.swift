@@ -72,5 +72,5 @@ struct TransactionRowView: View {
 }
 
 #Preview {
-    TransactionRowView(txn: Transaction(titile: "Sample Income", amount: 1200, date: Date(), type: .income))
+    TransactionRowView(txn: Transaction(title: "Sample Income", amount: 1200, date: Date(), type: .income))
 }
