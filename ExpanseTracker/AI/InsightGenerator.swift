@@ -28,12 +28,12 @@ final class InsightGenerator {
 
         // MARK: - Total Spending
         let thisMonthTotal = thisMonth
-            .filter { $0.type == .expanse }
+            .filter { $0.type == .expense }
             .map { $0.amount }
             .reduce(0, +)
 
         let lastMonthTotal = lastMonth
-            .filter { $0.type == .expanse }
+            .filter { $0.type == .expense }
             .map { $0.amount }
             .reduce(0, +)
 
@@ -49,7 +49,7 @@ final class InsightGenerator {
         }
 
         // MARK: - Category Totals
-        let expenses = thisMonth.filter { $0.type == .expanse }
+        let expenses = thisMonth.filter { $0.type == .expense }
 
         let categoryTotals = Dictionary(grouping: expenses) { $0.category }
             .mapValues { $0.map { $0.amount }.reduce(0, +) }
@@ -88,7 +88,7 @@ final class InsightGenerator {
         }
 
         // MARK: - Simple Spending Warning
-        if thisMonthTotal > 0 && thisMonthTotal > (lastMonthTotal * 1.5) {
+        if lastMonthTotal > 0 && thisMonthTotal > (lastMonthTotal * 1.5) {
             insights.append(
                 Insight(message: "⚠️ Your spending increased significantly this month", type: .warning)
             )

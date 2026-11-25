@@ -6,52 +6,67 @@
 //
 
 import SwiftUI
+import CoreData
 import Firebase
 
 @main
 struct ExpanseTrackerApp: App {
-    
+
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
-    
-    let persistenceController = PersistenceController()
-    @StateObject private var authviewModel = SignInViewModel()
-    
+
+    private let persistence = PersistenceController.shared
+    @StateObject private var authViewModel = SignInViewModel()
+
     var body: some Scene {
         WindowGroup {
-            let context = persistenceController.container.viewContext
-            
-            
             Group {
-                if authviewModel.isLoggedIn, let userID = authviewModel.userID {
-                    
-                    let firestoreManager = FirestoreTransactionManager(userId: userID, context: context)
-                    let transactionManager = TransactionManager(context: context, firestoreManager: firestoreManager)
-                    NavigationStack {
-                        HomeView()
-                            .environment(\.managedObjectContext, context)
-                            .environmentObject(transactionManager)
-                            .environmentObject(firestoreManager)
-                            .environmentObject(authviewModel)
-                    }
-                    .task {
-                        // Ask only once the user is signed in and has context for why.
-                        NotificationManager.shared.requestPermission()
-                        NotificationManager.shared.scheduleDailyExpenseReminder()
-                    }
+                if authViewModel.isLoggedIn, let userID = authViewModel.userID {
+                    SignedInRoot(userID: userID, context: persistence.container.viewContext)
+                        .id(userID)
                 } else {
                     AuthView()
-                        .environmentObject(authviewModel)
                         .transition(.opacity)
                 }
             }
-            .animation(.easeInOut(duration: 0.3), value: authviewModel.isLoggedIn)
+            .environment(\.managedObjectContext, persistence.container.viewContext)
+            .environmentObject(authViewModel)
+            .animation(.easeInOut(duration: 0.3), value: authViewModel.isLoggedIn)
+            .onChange(of: authViewModel.userID) { oldValue, newValue in
+                if oldValue != nil, newValue == nil {
+                    persistence.deleteAllTransactions()
+                }
+            }
+        }
+    }
+}
+
+/// Owns the per-user managers so they are created once per sign-in,
+/// not on every re-render of the app's root view.
+private struct SignedInRoot: View {
+    @StateObject private var transactionManager: TransactionManager
+
+    init(userID: String, context: NSManagedObjectContext) {
+        _transactionManager = StateObject(wrappedValue: TransactionManager(
+            context: context,
+            remote: FirestoreTransactionManager(userId: userID)
+        ))
+    }
+
+    var body: some View {
+        NavigationStack {
+            HomeView()
+        }
+        .environmentObject(transactionManager)
+        .task {
+            // Ask only once the user is signed in and has context for why.
+            NotificationManager.shared.requestPermission()
+            NotificationManager.shared.scheduleDailyExpenseReminder()
         }
     }
 }
 
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        
         FirebaseApp.configure()
         return true
     }

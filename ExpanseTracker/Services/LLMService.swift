@@ -7,8 +7,6 @@
 
 import Foundation
 
-import Foundation
-
 final class LLMService {
 
     static let shared = LLMService()
@@ -28,7 +26,10 @@ final class LLMService {
             insights.append(comparison)
         }
 
-        let expenses = transactions.filter { $0.type == .expanse }
+        // "This month" = expenses dated in the current calendar month (income excluded).
+        let expenses = transactions.filter {
+            $0.type == .expense && Calendar.current.isDate($0.date, equalTo: Date(), toGranularity: .month)
+        }
         let total = expenses.map { $0.amount }.reduce(0, +)
 
         let categorySpending = Dictionary(grouping: expenses) { $0.category }
@@ -47,7 +48,7 @@ final class LLMService {
         }
 
         // 🔹 Positive feedback
-        if total < 3000 {
+        if total > 0 && total < 3000 {
             insights.append("Great job! Your spending is well under control.")
         }
 
@@ -71,8 +72,8 @@ final class LLMService {
             calendar.isDate($0.date, equalTo: lastMonthDate, toGranularity: .month)
         }
 
-        let currentTotal = currentMonth.map { $0.amount }.reduce(0, +)
-        let lastTotal = lastMonth.map { $0.amount }.reduce(0, +)
+        let currentTotal = currentMonth.filter { $0.type == .expense }.map { $0.amount }.reduce(0, +)
+        let lastTotal = lastMonth.filter { $0.type == .expense }.map { $0.amount }.reduce(0, +)
 
         guard lastTotal > 0 else { return nil }
 
