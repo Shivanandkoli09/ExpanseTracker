@@ -209,6 +209,11 @@ final class SignInViewModel: ObservableObject {
         }
     }
 
+    /// Re-reads the signed-in user, e.g. after the display name changes.
+    func refreshUser() {
+        apply(user: Auth.auth().currentUser)
+    }
+
     // MARK: - Private
 
     /// Firebase keeps the session in the Keychain, which survives app deletion,
@@ -249,7 +254,7 @@ final class SignInViewModel: ObservableObject {
             .setData(data, merge: true)
     }
 
-    private static func friendlyMessage(for error: Error) -> String {
+    static func friendlyMessage(for error: Error) -> String {
         let nsError = error as NSError
         guard nsError.domain == AuthErrorDomain,
               let code = AuthErrorCode(rawValue: nsError.code) else {
@@ -269,6 +274,8 @@ final class SignInViewModel: ObservableObject {
             return "You're offline. Check your connection and try again."
         case .tooManyRequests:
             return "Too many attempts. Please wait a moment and try again."
+        case .requiresRecentLogin:
+            return "For your security, please enter your password again."
         case .userDisabled:
             return "This account has been disabled. Contact support for help."
         default:

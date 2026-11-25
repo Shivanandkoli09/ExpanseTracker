@@ -59,6 +59,31 @@ final class FirebaseAuthManager {
         try await Auth.auth().sendPasswordReset(withEmail: email)
     }
     
+    /// Firebase requires a recent sign-in before sensitive actions like deleting the account.
+    func reauthenticate(email: String, password: String) async throws {
+        guard let user = Auth.auth().currentUser else {
+            throw URLError(.userAuthenticationRequired)
+        }
+        let credential = EmailAuthProvider.credential(withEmail: email, password: password)
+        _ = try await user.reauthenticate(with: credential)
+    }
+
+    func deleteCurrentUser() async throws {
+        guard let user = Auth.auth().currentUser else {
+            throw URLError(.userAuthenticationRequired)
+        }
+        try await user.delete()
+    }
+
+    func updateDisplayName(_ name: String) async throws {
+        guard let user = Auth.auth().currentUser else {
+            throw URLError(.userAuthenticationRequired)
+        }
+        let change = user.createProfileChangeRequest()
+        change.displayName = name
+        try await change.commitChanges()
+    }
+
     func updatePassword(password: String) async throws {
         guard let user = Auth.auth().currentUser else {
             throw URLError(.badServerResponse)

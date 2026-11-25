@@ -51,6 +51,29 @@ final class FirestoreTransactionManager {
         }
     }
 
+    // MARK: - Profile
+
+    static func profileDocument(for userId: String) -> DocumentReference {
+        Firestore.firestore().collection("users").document(userId)
+    }
+
+    /// Permanently removes every transaction and the profile document for this user.
+    static func deleteAllData(for userId: String) async throws {
+        let db = Firestore.firestore()
+        let profile = profileDocument(for: userId)
+        let documents = try await profile.collection("transactions").getDocuments().documents
+
+        // Firestore batches are capped at 500 writes.
+        for start in stride(from: 0, to: documents.count, by: 400) {
+            let batch = db.batch()
+            documents[start..<min(start + 400, documents.count)].forEach { batch.deleteDocument($0.reference) }
+            try await batch.commit()
+        }
+        try await profile.delete()
+    }
+
+    // MARK: - Transactions
+
     func save(_ txn: Transaction) throws {
         guard let id = txn.id else { return }
         try collection.document(id).setData(from: txn)

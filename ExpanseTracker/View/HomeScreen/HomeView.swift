@@ -23,6 +23,7 @@ struct HomeView: View {
     @State private var selectedTransaction: Transaction?
     @State private var isEditing: Bool = false
     @State private var searchText: String = ""
+    @State private var isShowingProfile = false
     
     @EnvironmentObject var transactionManager: TransactionManager
     @EnvironmentObject var authViewModel: SignInViewModel
@@ -135,6 +136,12 @@ struct HomeView: View {
             }
         }
 
+        .sheet(isPresented: $isShowingProfile) {
+            ProfileView()
+                .environmentObject(transactionManager)
+                .environmentObject(authViewModel)
+        }
+
         // ✅ Toolbar
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -146,11 +153,12 @@ struct HomeView: View {
             }
 
             ToolbarItem(placement: .navigationBarLeading) {
-                Button(action: {
-                    authViewModel.logout()
-                }) {
+                Button {
+                    isShowingProfile = true
+                } label: {
                     Image(systemName: "person.crop.circle.fill")
                 }
+                .accessibilityLabel("Profile")
             }
         }
     }
