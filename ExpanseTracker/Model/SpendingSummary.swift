@@ -54,6 +54,9 @@ struct SpendingSummary {
     let trend: [MonthTotal]
     /// Days left in the current month, including today.
     let daysLeftInMonth: Int
+    /// Consecutive days with at least one transaction, ending today
+    /// (or yesterday, so the streak survives until today is over).
+    let loggingStreak: Int
 
     var monthNet: Double { monthIncome - monthExpense }
 
@@ -89,6 +92,19 @@ struct SpendingSummary {
 
         let daysInMonth = calendar.range(of: .day, in: .month, for: now)?.count ?? 30
         daysLeftInMonth = max(1, daysInMonth - calendar.component(.day, from: now) + 1)
+
+        let loggedDays = Set(transactions.map { calendar.startOfDay(for: $0.date) })
+        var day = calendar.startOfDay(for: now)
+        if !loggedDays.contains(day) {
+            day = calendar.date(byAdding: .day, value: -1, to: day) ?? day
+        }
+        var streak = 0
+        while loggedDays.contains(day) {
+            streak += 1
+            guard let previous = calendar.date(byAdding: .day, value: -1, to: day) else { break }
+            day = previous
+        }
+        loggingStreak = streak
     }
 
     func budgetStatus(budget: Double) -> BudgetStatus {

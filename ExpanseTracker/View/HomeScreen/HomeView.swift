@@ -20,6 +20,7 @@ struct HomeView: View {
     @EnvironmentObject private var transactionManager: TransactionManager
     @EnvironmentObject private var authViewModel: SignInViewModel
     @EnvironmentObject private var profileStore: UserProfileStore
+    @EnvironmentObject private var appLock: AppLockManager
 
     @StateObject private var viewModel = HomeViewModel()
 
@@ -30,6 +31,7 @@ struct HomeView: View {
     @State private var isShowingProfile = false
     @State private var isEditingBudget = false
     @State private var isEditingGoal = false
+    @State private var recentlyDeleted: Transaction?
 
     private var isSearching: Bool { !searchText.isEmpty }
 
@@ -66,7 +68,7 @@ struct HomeView: View {
                         .buttonStyle(.plain)
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                             Button(role: .destructive) {
-                                transactionManager.delete(txn)
+                                delete(txn)
                             } label: {
                                 Label("Delete", systemImage: "trash")
                             }
@@ -87,10 +89,17 @@ struct HomeView: View {
         .listSectionSpacing(.compact)
         .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Search title, amount or date")
         .safeAreaInset(edge: .bottom, alignment: .trailing) {
-            // The empty state has its own "Add Transaction" button.
-            if !transactionManager.transactions.isEmpty {
-                addButton
+            VStack(alignment: .trailing, spacing: 12) {
+                // The empty state has its own "Add Transaction" button.
+                if !transactionManager.transactions.isEmpty {
+                    addButton
+                }
+                if let deleted = recentlyDeleted {
+                    undoToast(for: deleted)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
             }
+            .animation(.spring(duration: 0.35), value: recentlyDeleted?.id)
         }
         .navigationTitle(greetingTitle)
         .toolbar {
@@ -118,7 +127,9 @@ struct HomeView: View {
         }
         .sheet(item: $editingTransaction) { txn in
             NavigationStack {
-                AddTransactionView(manager: transactionManager, existingTransaction: txn)
+                AddTransactionView(manager: transactionManager, existingTransaction: txn) { deleted in
+                    delete(deleted)
+                }
             }
         }
         .sheet(isPresented: $isShowingProfile) {
@@ -126,6 +137,7 @@ struct HomeView: View {
                 .environmentObject(transactionManager)
                 .environmentObject(authViewModel)
                 .environmentObject(profileStore)
+                .environmentObject(appLock)
         }
         .sheet(isPresented: $isEditingBudget) {
             BudgetSheet(currentBudget: profileStore.monthlyBudget, averageSpend: averageMonthlySpend) {
@@ -144,6 +156,9 @@ struct HomeView: View {
     @ViewBuilder
     private var dashboard: some View {
         Section {
+            if viewModel.summary.loggingStreak >= 2 {
+                streakChip(viewModel.summary.loggingStreak)
+            }
             MonthOverviewCard(summary: viewModel.summary, budget: profileStore.monthlyBudget) {
                 isEditingBudget = true
             }
@@ -201,6 +216,56 @@ struct HomeView: View {
         .padding(.trailing, 20)
         .padding(.bottom, 8)
         .accessibilityLabel("Add transaction")
+    }
+
+    private func streakChip(_ days: Int) -> some View {
+        HStack(spacing: 6) {
+            Text("🔥")
+            Text("\(days)-day logging streak")
+                .fontWeight(.semibold)
+            Text("· keep it going!")
+                .foregroundStyle(.secondary)
+        }
+        .font(.footnote)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(Color.orange.opacity(0.15), in: Capsule())
+        .accessibilityElement(children: .combine)
+    }
+
+    private func undoToast(for txn: Transaction) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "trash")
+                .foregroundStyle(.secondary)
+            Text("Deleted \"\(txn.title)\"")
+                .font(.subheadline)
+                .lineLimit(1)
+            Spacer(minLength: 8)
+            Button("Undo") {
+                transactionManager.add(txn)
+                recentlyDeleted = nil
+            }
+            .font(.subheadline.weight(.bold))
+            .foregroundStyle(Brand.primary)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
+    }
+
+    /// Deletes immediately, with a few seconds to undo.
+    private func delete(_ txn: Transaction) {
+        transactionManager.delete(txn)
+        recentlyDeleted = txn
+        UINotificationFeedbackGenerator().notificationOccurred(.warning)
+        let deletedID = txn.id
+        Task {
+            try? await Task.sleep(for: .seconds(4))
+            if recentlyDeleted?.id == deletedID { recentlyDeleted = nil }
+        }
     }
 
     private func monthHeader(_ group: MonthGroup) -> some View {

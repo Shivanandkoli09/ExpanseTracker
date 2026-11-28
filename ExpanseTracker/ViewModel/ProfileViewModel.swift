@@ -91,7 +91,7 @@ final class ProfileViewModel: ObservableObject {
             try await FirebaseAuthManager.shared.deleteCurrentUser()
 
             UserPreferenceStore.shared.clearAll()
-            NotificationManager.shared.cancelDailyReminder()
+            await NotificationManager.shared.cancelDailyReminder()
             return nil
         } catch {
             return SignInViewModel.friendlyMessage(for: error)

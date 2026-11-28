@@ -10,6 +10,7 @@ struct ProfileView: View {
     @EnvironmentObject private var authViewModel: SignInViewModel
     @EnvironmentObject private var transactionManager: TransactionManager
     @EnvironmentObject private var profileStore: UserProfileStore
+    @EnvironmentObject private var appLock: AppLockManager
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
 
@@ -35,6 +36,8 @@ struct ProfileView: View {
 
                 goalSection
                 reminderSection
+                securitySection
+                dataSection
                 accountSection
                 aboutSection
 
@@ -215,7 +218,7 @@ struct ProfileView: View {
                     .font(.footnote.weight(.semibold))
                 }
             } else {
-                Text("A gentle nudge each day to log your spending.")
+                Text("A gentle nudge to log your spending — skipped on days you've already added something.")
             }
         }
     }
@@ -241,6 +244,44 @@ struct ProfileView: View {
 
     private func refreshNotificationStatus() async {
         notificationsDenied = await NotificationManager.shared.authorizationStatus() == .denied
+    }
+
+    // MARK: - Security
+
+    @ViewBuilder
+    private var securitySection: some View {
+        if appLock.isAvailable {
+            Section {
+                Toggle(isOn: Binding(
+                    get: { appLock.isEnabled },
+                    set: { newValue in Task { await appLock.setEnabled(newValue) } }
+                )) {
+                    Label("Lock with \(appLock.methodName)", systemImage: appLock.methodIcon)
+                }
+            } header: {
+                Text("Security")
+            } footer: {
+                Text("Require \(appLock.methodName) when you open MyMoney. Your balances are also hidden in the app switcher.")
+            }
+        }
+    }
+
+    // MARK: - Your Data
+
+    private var dataSection: some View {
+        Section {
+            ShareLink(
+                item: TransactionsCSV(transactions: transactionManager.transactions),
+                preview: SharePreview("MyMoney transactions", image: Image(systemName: "tablecells"))
+            ) {
+                Label("Export Transactions (CSV)", systemImage: "square.and.arrow.up")
+            }
+            .disabled(transactionManager.transactions.isEmpty)
+        } header: {
+            Text("Your data")
+        } footer: {
+            Text("Download all your transactions as a spreadsheet you can open in Numbers, Excel or Google Sheets.")
+        }
     }
 
     // MARK: - Account

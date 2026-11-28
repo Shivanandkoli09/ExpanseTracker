@@ -16,6 +16,8 @@ struct ExpanseTrackerApp: App {
 
     private let persistence = PersistenceController.shared
     @StateObject private var authViewModel = SignInViewModel()
+    @StateObject private var appLock = AppLockManager()
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
@@ -23,6 +25,12 @@ struct ExpanseTrackerApp: App {
                 if authViewModel.isLoggedIn, let userID = authViewModel.userID {
                     SignedInRoot(userID: userID, context: persistence.container.viewContext)
                         .id(userID)
+                        .overlay {
+                            if appLock.isLocked {
+                                LockScreenView()
+                                    .transition(.opacity)
+                            }
+                        }
                 } else {
                     AuthView()
                         .transition(.opacity)
@@ -30,10 +38,23 @@ struct ExpanseTrackerApp: App {
             }
             .environment(\.managedObjectContext, persistence.container.viewContext)
             .environmentObject(authViewModel)
+            .environmentObject(appLock)
+            .overlay {
+                // Hide balances in the app switcher snapshot.
+                if scenePhase != .active && authViewModel.isLoggedIn && !appLock.isLocked {
+                    PrivacyCoverView()
+                }
+            }
             .animation(.easeInOut(duration: 0.3), value: authViewModel.isLoggedIn)
+            .animation(.easeInOut(duration: 0.2), value: appLock.isLocked)
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .background { appLock.lockIfEnabled() }
+            }
             .onChange(of: authViewModel.userID) { oldValue, newValue in
                 if oldValue != nil, newValue == nil {
                     persistence.deleteAllTransactions()
+                    appLock.reset()
+                    Task { await NotificationManager.shared.cancelDailyReminder() }
                 }
             }
         }
@@ -63,6 +84,9 @@ private struct SignedInRoot: View {
         .task {
             // Ask only once the user is signed in and has context for why.
             await NotificationManager.shared.applySavedReminderSettings()
+        }
+        .onChange(of: transactionManager.transactions) { _, transactions in
+            Task { await NotificationManager.shared.updateActivity(transactions: transactions) }
         }
     }
 }
