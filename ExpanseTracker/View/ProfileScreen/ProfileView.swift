@@ -25,6 +25,7 @@ struct ProfileView: View {
     @State private var draftName = ""
     @State private var isConfirmingSignOut = false
     @State private var isShowingDeleteAccount = false
+    @State private var upiDraft = ""
 
     var body: some View {
         NavigationStack {
@@ -35,6 +36,7 @@ struct ProfileView: View {
                 .listRowBackground(Color.clear)
 
                 goalSection
+                paymentsSection
                 reminderSection
                 securitySection
                 dataSection
@@ -244,6 +246,45 @@ struct ProfileView: View {
 
     private func refreshNotificationStatus() async {
         notificationsDenied = await NotificationManager.shared.authorizationStatus() == .denied
+    }
+
+    // MARK: - Payments
+
+    private var paymentsSection: some View {
+        Section {
+            HStack {
+                Image(systemName: "indianrupeesign.circle")
+                    .foregroundStyle(Brand.primary)
+                TextField("yourname@okbank", text: $upiDraft)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .keyboardType(.emailAddress)
+                    .submitLabel(.done)
+                    .onSubmit(saveUPI)
+                if upiDraft != (profileStore.upiID ?? "") {
+                    Button("Save", action: saveUPI)
+                        .buttonStyle(.borderless)
+                        .fontWeight(.semibold)
+                        .disabled(!upiDraft.isEmpty && !UPIPayment.isValidID(upiDraft))
+                }
+            }
+            .onAppear { upiDraft = profileStore.upiID ?? "" }
+            .onChange(of: profileStore.upiID) { _, newValue in upiDraft = newValue ?? "" }
+        } header: {
+            Text("UPI ID")
+        } footer: {
+            if !upiDraft.isEmpty && !UPIPayment.isValidID(upiDraft) {
+                Text("That doesn't look like a UPI ID. It should look like name@okhdfcbank.")
+                    .foregroundStyle(.orange)
+            } else {
+                Text("Used for payment QR codes when friends settle up group expenses.")
+            }
+        }
+    }
+
+    private func saveUPI() {
+        guard upiDraft.isEmpty || UPIPayment.isValidID(upiDraft) else { return }
+        profileStore.setUPIID(upiDraft)
     }
 
     // MARK: - Security

@@ -9,12 +9,15 @@ struct GroupDetailView: View {
     let groupID: String
 
     @EnvironmentObject private var store: GroupsStore
+    @EnvironmentObject private var profileStore: UserProfileStore
+    @EnvironmentObject private var authViewModel: SignInViewModel
     @Environment(\.dismiss) private var dismiss
 
     @State private var isAddingExpense = false
     @State private var editingExpense: GroupExpense?
     @State private var isEditingGroup = false
     @State private var isConfirmingDelete = false
+    @State private var isSettlingUp = false
 
     var body: some View {
         if let group = store.group(withID: groupID) {
@@ -129,6 +132,12 @@ struct GroupDetailView: View {
         .sheet(item: $editingExpense) { expense in
             GroupExpenseSheet(group: group, existing: expense) { store.upsert($0, in: groupID) }
         }
+        .sheet(isPresented: $isSettlingUp) {
+            SettleUpView(groupID: groupID)
+                .environmentObject(store)
+                .environmentObject(profileStore)
+                .environmentObject(authViewModel)
+        }
         .sheet(isPresented: $isEditingGroup) {
             GroupFormSheet(existing: group) { store.save($0) }
         }
@@ -194,6 +203,20 @@ struct GroupDetailView: View {
                 .padding(10)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(.white.opacity(0.18), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                if !ledger.isSettled {
+                    Button {
+                        isSettlingUp = true
+                    } label: {
+                        Label("Settle Up", systemImage: "arrow.left.arrow.right")
+                            .font(.headline)
+                            .foregroundStyle(Brand.primary)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 46)
+                            .background(.white, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                    .buttonStyle(PressableButtonStyle())
+                }
             }
         }
         .foregroundStyle(.white)

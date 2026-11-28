@@ -76,6 +76,20 @@ final class GroupsStore: ObservableObject {
         group.expenses.removeAll { $0.id == expense.id }
         save(group)
     }
+
+    // MARK: - Settling up
+
+    func recordPayment(_ payment: GroupPayment, in groupID: String) {
+        guard var group = group(withID: groupID) else { return }
+        group.payments.append(payment)
+        save(group)
+    }
+
+    func deletePayment(_ payment: GroupPayment, in groupID: String) {
+        guard var group = group(withID: groupID) else { return }
+        group.payments.removeAll { $0.id == payment.id }
+        save(group)
+    }
 }
 
 private final class GroupsListenerBox {
