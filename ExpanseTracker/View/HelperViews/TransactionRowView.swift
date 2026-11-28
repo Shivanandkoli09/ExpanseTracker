@@ -2,7 +2,7 @@
 //  TransactionRowView.swift
 //  ExpanseTracker
 //
-//  Created by KPIT on 18/06/25.
+//  Created by Shivanand Koli on 18/06/25.
 //
 
 import SwiftUI
@@ -10,67 +10,42 @@ import SwiftUI
 struct TransactionRowView: View {
     let txn: Transaction
 
+    private var isIncome: Bool { txn.type == .income }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        HStack(spacing: 12) {
+            Image(systemName: txn.category.icon)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 38, height: 38)
+                .background(Circle().fill(txn.category.color.gradient))
 
-            // Top Row
-            HStack {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(txn.title)
-                    .font(.headline)
-
-                Spacer()
-
-                Text("₹\(txn.amount, specifier: "%.2f")")
-                    .font(.subheadline)
-                    .foregroundColor(txn.type == .income ? .green : .red)
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                Text("\(txn.category.displayName) · \(txn.date.formatted(.dateTime.day().month(.abbreviated)))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
-            // Bottom Row
-            HStack(spacing: 8) {
+            Spacer(minLength: 8)
 
-                // ✅ Type Badge
-                Text(txn.type.rawValue)
-                    .font(.caption)
-                    .padding(6)
-                    .background(txn.type == .income ? Color.green.opacity(0.15) : Color.red.opacity(0.15))
-                    .foregroundColor(txn.type == .income ? .green : .red)
-                    .cornerRadius(6)
-
-                // ✅ NEW: Category Badge (AI Powered)
-                Text(txn.category.rawValue.capitalized)
-                    .font(.caption)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(colorForCategory(txn.category).opacity(0.15))
-                    .foregroundColor(colorForCategory(txn.category))
-                    .cornerRadius(6)
-
-                Spacer()
-
-                Text(txn.date, format: .dateTime.day().month().year())
-                    .font(.caption2)
-                    .foregroundColor(.gray)
-            }
+            Text((isIncome ? "+" : "−") + Currency.string(txn.amount))
+                .font(.callout.weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(isIncome ? Color.green : Color.primary)
         }
-        .padding(10)
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(10)
-    }
-
-    // ✅ Helper for dynamic colors
-    private func colorForCategory(_ category: TransactionCategory) -> Color {
-        switch category {
-        case .food: return .orange
-        case .transport: return .blue
-        case .shopping: return .purple
-        case .bills: return .red
-        case .entertainment: return .pink
-        case .salary: return .green
-        case .other: return .gray
-        }
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
     }
 }
 
 #Preview {
-    TransactionRowView(txn: Transaction(title: "Sample Income", amount: 1200, date: Date(), type: .income))
+    List {
+        TransactionRowView(txn: Transaction(title: "Swiggy dinner", amount: 450, date: Date(), type: .expense, category: .food))
+        TransactionRowView(txn: Transaction(title: "Salary", amount: 85000, date: Date(), type: .income, category: .salary))
+    }
 }
