@@ -2,7 +2,7 @@
 //  ExpanseTrackerApp.swift
 //  ExpanseTracker
 //
-//  Created by KPIT on 09/06/25.
+//  Created by Shivanand Koli on 09/06/25.
 //
 
 import SwiftUI
@@ -44,8 +44,10 @@ struct ExpanseTrackerApp: App {
 /// not on every re-render of the app's root view.
 private struct SignedInRoot: View {
     @StateObject private var transactionManager: TransactionManager
+    @StateObject private var profileStore: UserProfileStore
 
     init(userID: String, context: NSManagedObjectContext) {
+        _profileStore = StateObject(wrappedValue: UserProfileStore(userId: userID))
         _transactionManager = StateObject(wrappedValue: TransactionManager(
             context: context,
             remote: FirestoreTransactionManager(userId: userID)
@@ -57,6 +59,7 @@ private struct SignedInRoot: View {
             HomeView()
         }
         .environmentObject(transactionManager)
+        .environmentObject(profileStore)
         .task {
             // Ask only once the user is signed in and has context for why.
             await NotificationManager.shared.applySavedReminderSettings()

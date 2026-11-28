@@ -2,303 +2,283 @@
 //  HomeView.swift
 //  ExpanseTracker
 //
-//  Created by KPIT on 09/06/25.
+//  Created by Shivanand Koli on 09/06/25.
 //
 
 import SwiftUI
 
 enum TransactionFilter: String, CaseIterable, Identifiable {
-    
     case all = "All"
     case income = "Income"
     case expense = "Expense"
-    
-    var id: String {
-        self.rawValue
-    }
+
+    var id: String { rawValue }
 }
 
 struct HomeView: View {
-    @State private var selectedFilter: TransactionFilter = .all
-    @State private var selectedTransaction: Transaction?
-    @State private var isEditing: Bool = false
-    @State private var searchText: String = ""
-    @State private var isShowingProfile = false
-    
-    @EnvironmentObject var transactionManager: TransactionManager
-    @EnvironmentObject var authViewModel: SignInViewModel
-    
+
+    @EnvironmentObject private var transactionManager: TransactionManager
+    @EnvironmentObject private var authViewModel: SignInViewModel
+    @EnvironmentObject private var profileStore: UserProfileStore
+
     @StateObject private var viewModel = HomeViewModel()
-    
-    var filteredTransactions: [Transaction] {
-        let filtered: [Transaction]
-        
-        switch selectedFilter {
-        case .all:
-            filtered = transactionManager.transactions
-        case .income:
-            filtered = transactionManager.transactions.filter {
-                $0.type == .income
-            }
-        case .expense:
-            filtered = transactionManager.transactions.filter {
-                $0.type == .expense
-            }
-        }
-        
-        let sorted = filtered.sorted { $0.date > $1.date }
-        if searchText.isEmpty {
-            return sorted
-        } else {
-            return sorted.filter { txn in
-                let amountString = String(format: "%.2f", txn.amount)
-                let dateString = DateFormatter.localizedString(from: txn.date, dateStyle: .medium, timeStyle: .none)
-                return txn.title.localizedCaseInsensitiveContains(searchText) ||
-                amountString.localizedCaseInsensitiveContains(searchText) ||
-                dateString.localizedCaseInsensitiveContains(searchText)
-            }
-        }
-        
-        
-    }
+
+    @State private var selectedFilter: TransactionFilter = .all
+    @State private var searchText = ""
+    @State private var editingTransaction: Transaction?
+    @State private var isAddingTransaction = false
+    @State private var isShowingProfile = false
+    @State private var isEditingBudget = false
+    @State private var isEditingGoal = false
+
+    private var isSearching: Bool { !searchText.isEmpty }
+
     var body: some View {
         List {
+            if !isSearching {
+                dashboard
+            }
 
-            // 🔹 Header Section (Summary + Insights + Filter)
             Section {
-                summaryCard()
-                
-
-                InsightsScrollView(insights: viewModel.insights)
-                ShowAIInsightsView(aiInsights: viewModel.aiInsights)
-
                 Picker("Filter", selection: $selectedFilter) {
-                    ForEach(TransactionFilter.allCases) { filter in
-                        Text(filter.rawValue).tag(filter)
-                    }
+                    ForEach(TransactionFilter.allCases) { Text($0.rawValue).tag($0) }
                 }
                 .pickerStyle(.segmented)
             }
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
 
-            // 🔹 Transactions Section
-            ForEach(groupedTransactions, id: \.0) { (month, transactions) in
-                Section(header: Text(month).font(.headline)) {
-                    ForEach(transactions) { txn in
-                        TransactionRowView(txn: txn)
-                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            if monthGroups.isEmpty {
+                Section {
+                    emptyState
+                }
+                .listRowBackground(Color.clear)
+            }
 
-                                Button(role: .destructive) {
-                                    if let index = transactions.firstIndex(where: { $0.id == txn.id }) {
-                                        deleteTransaction(from: transactions, at: IndexSet(integer: index))
-                                    }
-                                } label: {
-                                    Label("Delete", systemImage: "trash")
-                                }
-
-                                Button {
-                                    selectedTransaction = txn
-                                    isEditing = true
-                                } label: {
-                                    Label("Edit", systemImage: "pencil")
-                                }
-                                .tint(.blue)
+            ForEach(monthGroups, id: \.month) { group in
+                Section {
+                    ForEach(group.transactions) { txn in
+                        Button {
+                            editingTransaction = txn
+                        } label: {
+                            TransactionRowView(txn: txn)
+                        }
+                        .buttonStyle(.plain)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                transactionManager.delete(txn)
+                            } label: {
+                                Label("Delete", systemImage: "trash")
                             }
+                            Button {
+                                editingTransaction = txn
+                            } label: {
+                                Label("Edit", systemImage: "pencil")
+                            }
+                            .tint(Brand.primary)
+                        }
                     }
+                } header: {
+                    monthHeader(group)
                 }
             }
         }
         .listStyle(.insetGrouped)
-
-        // ✅ Attach searchable to MAIN container (fixes your issue)
-        .searchable(
-            text: $searchText,
-            placement: .navigationBarDrawer(displayMode: .automatic),
-            prompt: "Search Transaction"
-        )
-
-        // ✅ Lifecycle
-        .onAppear {
-            viewModel.generateInsights(from: transactionManager.transactions)
-            viewModel.generateAIInsights(from: transactionManager.transactions)
-        }
-
-        .onChange(of: transactionManager.transactions) { _, newValue in
-            viewModel.generateInsights(from: newValue)
-            viewModel.generateAIInsights(from: newValue)
-        }
-
-        // ✅ Navigation
-        .navigationBarTitle("MyMoney", displayMode: .inline)
-
-        .sheet(item: $selectedTransaction) { txn in
-            NavigationStack {
-                AddTransactionView(manager: transactionManager, existingTransaction: txn)
+        .listSectionSpacing(.compact)
+        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Search title, amount or date")
+        .safeAreaInset(edge: .bottom, alignment: .trailing) {
+            // The empty state has its own "Add Transaction" button.
+            if !transactionManager.transactions.isEmpty {
+                addButton
             }
         }
-
-        .sheet(isPresented: $isShowingProfile) {
-            ProfileView()
-                .environmentObject(transactionManager)
-                .environmentObject(authViewModel)
-        }
-
-        // ✅ Toolbar
+        .navigationTitle(greetingTitle)
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                NavigationLink(
-                    destination: AddTransactionView(manager: transactionManager)
-                ) {
-                    Image(systemName: "plus")
-                }
-            }
-
-            ToolbarItem(placement: .navigationBarLeading) {
+            ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     isShowingProfile = true
                 } label: {
-                    Image(systemName: "person.crop.circle.fill")
+                    Text(initial)
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 32, height: 32)
+                        .background(Circle().fill(Brand.gradient))
                 }
                 .accessibilityLabel("Profile")
             }
         }
-    }
-
-    private var totalIncome: Double {
-        transactionManager.transactions
-            .filter { $0.type == .income }
-            .map { $0.amount }
-            .reduce(0, +)
-    }
-    
-    private var totalExpense: Double {
-        transactionManager.transactions
-            .filter { $0.type == .expense }
-            .map { $0.amount }
-            .reduce(0, +)
-    }
-    
-    private func calculateBalance() -> Double {
-        totalIncome - totalExpense
-    }
-    
-    private func deleteTransaction(from group: [Transaction], at offsets: IndexSet) {
-        for index in offsets {
-            transactionManager.delete(group[index])
+        .onAppear(perform: refresh)
+        .onChange(of: transactionManager.transactions) { _, _ in refresh() }
+        .onChange(of: profileStore.savingGoal) { _, _ in refresh() }
+        .onChange(of: profileStore.goalTarget) { _, _ in refresh() }
+        .sheet(isPresented: $isAddingTransaction) {
+            NavigationStack {
+                AddTransactionView(manager: transactionManager)
+            }
         }
-    }
-    
-    struct ShowAIInsightsView: View {
-        let aiInsights: [String]
-        
-        var body: some View {
-            if !aiInsights.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(aiInsights.count == 1 ? "AI Insight" : "AI Insights")
-                        .font(.headline)
-                        .padding(.horizontal)
-
-                    if aiInsights.count == 1 {
-                        Text(aiInsights.first!)
-                            .font(.subheadline)
-                            .padding()
-                            .background(Color.purple.opacity(0.1))
-                            .cornerRadius(12)
-                            .padding(.horizontal)
-                    } else {
-                        ForEach(aiInsights, id: \.self) { insight in
-                            Text("• \(insight)")
-                                .font(.subheadline)
-                                .padding(.horizontal)
-                        }
-                    }
-                }
+        .sheet(item: $editingTransaction) { txn in
+            NavigationStack {
+                AddTransactionView(manager: transactionManager, existingTransaction: txn)
+            }
+        }
+        .sheet(isPresented: $isShowingProfile) {
+            ProfileView()
+                .environmentObject(transactionManager)
+                .environmentObject(authViewModel)
+                .environmentObject(profileStore)
+        }
+        .sheet(isPresented: $isEditingBudget) {
+            BudgetSheet(currentBudget: profileStore.monthlyBudget, averageSpend: averageMonthlySpend) {
+                profileStore.setMonthlyBudget($0)
+            }
+        }
+        .sheet(isPresented: $isEditingGoal) {
+            GoalSheet(goal: profileStore.savingGoal, target: profileStore.goalTarget) { goal, target in
+                profileStore.setSavingGoal(goal, target: target)
             }
         }
     }
 
-    
-    struct InsightsScrollView: View {
+    // MARK: - Dashboard
 
-        let insights: [Insight]
+    @ViewBuilder
+    private var dashboard: some View {
+        Section {
+            MonthOverviewCard(summary: viewModel.summary, budget: profileStore.monthlyBudget) {
+                isEditingBudget = true
+            }
+            SavingGoalCard(
+                goal: profileStore.savingGoal,
+                target: profileStore.goalTarget,
+                summary: viewModel.summary
+            ) {
+                isEditingGoal = true
+            }
+            if !viewModel.insights.isEmpty {
+                InsightsScrollView(insights: viewModel.insights)
+            }
+            if !transactionManager.transactions.isEmpty {
+                SpendingChartCard(summary: viewModel.summary)
+            }
+        }
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+    }
 
-        var body: some View {
-            if !insights.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        ForEach(insights) { insight in
-                            InsightCardView(insight: insight)
-                                .frame(width: 220)
-                        }
-                    }
-                    .padding(.horizontal)
+    private var emptyState: some View {
+        Group {
+            if isSearching {
+                ContentUnavailableView.search(text: searchText)
+            } else {
+                ContentUnavailableView {
+                    Label(selectedFilter == .all ? "No transactions yet" : "No \(selectedFilter.rawValue.lowercased()) yet",
+                          systemImage: "tray")
+                } description: {
+                    Text("Tap + to add one. Type a title like \"Swiggy dinner\" and we'll categorise it for you.")
+                } actions: {
+                    Button("Add Transaction") { isAddingTransaction = true }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Brand.primary)
                 }
             }
         }
+        .frame(maxWidth: .infinity)
     }
 
-    private func summaryCard() -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Total Balance")
-                .font(.title2)
-                .fontWeight(.bold)
-                .foregroundColor(.gray)
-            Text("\u{20B9}\(calculateBalance(), specifier: "%.2f")")
-                .font(.largeTitle)
-                .fontWeight(.bold)
-                .foregroundColor(calculateBalance() >= 0 ? .green : .red)
-            
-            HStack {
-                VStack(alignment: .leading) {
-                    Text("Income")
-                        .font(.subheadline)
-                        .foregroundColor(.green)
-                    Text("\u{20B9}\(totalIncome, specifier: "%.2f")")
-                        .font(.headline)
-                }
-                Spacer()
-                
-                VStack(alignment: .leading) {
-                    Text("Expense")
-                        .font(.subheadline)
-                        .foregroundColor(.red)
-                    Text("\u{20B9}\(totalExpense, specifier: "%.2f")")
-                        .font(.headline)
-                }
-                
+    private var addButton: some View {
+        Button {
+            isAddingTransaction = true
+        } label: {
+            Image(systemName: "plus")
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(.white)
+                .frame(width: 60, height: 60)
+                .background(Circle().fill(Brand.gradient))
+                .shadow(color: Brand.primary.opacity(0.4), radius: 10, y: 5)
+        }
+        .buttonStyle(PressableButtonStyle())
+        .padding(.trailing, 20)
+        .padding(.bottom, 8)
+        .accessibilityLabel("Add transaction")
+    }
+
+    private func monthHeader(_ group: MonthGroup) -> some View {
+        HStack {
+            Text(group.month.formatted(.dateTime.month(.wide).year()))
+            Spacer()
+            if group.expense > 0 {
+                Text("−" + Currency.string(group.expense))
+                    .monospacedDigit()
             }
         }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(color: .black.opacity(0.2), radius: 5, x: 0, y: 2)
-        .padding(.horizontal)
+        .font(.subheadline.weight(.semibold))
+        .textCase(nil)
     }
-    
-    private var groupedTransactions: [(String, [Transaction])] {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMMM yyyy"
 
-        let grouped = Dictionary(grouping: filteredTransactions) { txn in
-            formatter.string(from: txn.date)
+    // MARK: - Data
+
+    private struct MonthGroup {
+        let month: Date
+        let transactions: [Transaction]
+        var expense: Double {
+            transactions.lazy.filter { $0.type == .expense }.reduce(0) { $0 + $1.amount }
         }
+    }
 
-        // Sorted by month (newest first)
-        let sorted = grouped.sorted { lhs, rhs in
-            guard let lhsDate = formatter.date(from: lhs.key),
-                  let rhsDate = formatter.date(from: rhs.key) else {
-                return false
+    private var filteredTransactions: [Transaction] {
+        let byType = transactionManager.transactions.filter { txn in
+            switch selectedFilter {
+            case .all: return true
+            case .income: return txn.type == .income
+            case .expense: return txn.type == .expense
             }
-            return lhsDate > rhsDate
         }
+        guard isSearching else { return byType }
 
-        return sorted
+        return byType.filter { txn in
+            txn.title.localizedCaseInsensitiveContains(searchText)
+                || txn.category.displayName.localizedCaseInsensitiveContains(searchText)
+                || String(format: "%.0f", txn.amount).contains(searchText)
+                || txn.date.formatted(date: .abbreviated, time: .omitted).localizedCaseInsensitiveContains(searchText)
+        }
     }
-    
-}
 
+    private var monthGroups: [MonthGroup] {
+        let calendar = Calendar.current
+        return Dictionary(grouping: filteredTransactions) { txn in
+            calendar.dateInterval(of: .month, for: txn.date)?.start ?? txn.date
+        }
+        .map { MonthGroup(month: $0.key, transactions: $0.value.sorted { $0.date > $1.date }) }
+        .sorted { $0.month > $1.month }
+    }
 
+    private var averageMonthlySpend: Double {
+        let past = viewModel.summary.trend.dropLast().filter { $0.expense > 0 }
+        guard !past.isEmpty else { return 0 }
+        return past.map(\.expense).reduce(0, +) / Double(past.count)
+    }
 
-#Preview {
-    HomeView()
+    private var firstName: String? {
+        authViewModel.displayName?
+            .split(separator: " ")
+            .first
+            .map(String.init)
+    }
+
+    private var greetingTitle: String {
+        firstName.map { "Hi, \($0)" } ?? "MyMoney"
+    }
+
+    private var initial: String {
+        (firstName?.first).map { String($0).uppercased() } ?? "?"
+    }
+
+    private func refresh() {
+        viewModel.update(
+            transactions: transactionManager.transactions,
+            goal: profileStore.savingGoal,
+            goalTarget: profileStore.goalTarget
+        )
+    }
 }

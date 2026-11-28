@@ -19,7 +19,6 @@ final class ProfileViewModel: ObservableObject {
     @Published private(set) var name: String = ""
     @Published private(set) var email: String = ""
     @Published private(set) var memberSince: Date?
-    @Published private(set) var savingGoal: SavingGoal?
     @Published private(set) var isDeleting = false
     @Published var message: Message?
 
@@ -48,25 +47,6 @@ final class ProfileViewModel: ObservableObject {
     }
 
     // MARK: - Profile
-
-    func loadProfile() async {
-        guard let uid else { return }
-        let snapshot = try? await FirestoreTransactionManager.profileDocument(for: uid).getDocument()
-        savingGoal = (snapshot?.data()?["savingGoal"] as? String).flatMap(SavingGoal.init(rawValue:))
-    }
-
-    func setSavingGoal(_ goal: SavingGoal?) async {
-        guard let uid else { return }
-        let previous = savingGoal
-        savingGoal = goal
-        do {
-            try await FirestoreTransactionManager.profileDocument(for: uid)
-                .setData(["savingGoal": goal?.rawValue ?? FieldValue.delete()], merge: true)
-        } catch {
-            savingGoal = previous
-            message = Message(title: "Couldn't update goal", body: SignInViewModel.friendlyMessage(for: error))
-        }
-    }
 
     /// Returns `true` when the name was saved.
     func updateName(_ newName: String) async -> Bool {

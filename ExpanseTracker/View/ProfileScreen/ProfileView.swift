@@ -9,6 +9,7 @@ struct ProfileView: View {
 
     @EnvironmentObject private var authViewModel: SignInViewModel
     @EnvironmentObject private var transactionManager: TransactionManager
+    @EnvironmentObject private var profileStore: UserProfileStore
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
 
@@ -57,7 +58,6 @@ struct ProfileView: View {
                 }
             }
             .task {
-                await viewModel.loadProfile()
                 await refreshNotificationStatus()
             }
             .alert("Your name", isPresented: $isEditingName) {
@@ -162,19 +162,19 @@ struct ProfileView: View {
         Section {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
                 ForEach(SavingGoal.allCases) { goal in
-                    GoalChip(goal: goal, isSelected: viewModel.savingGoal == goal) {
-                        Task {
-                            await viewModel.setSavingGoal(viewModel.savingGoal == goal ? nil : goal)
-                        }
+                    GoalChip(goal: goal, isSelected: profileStore.savingGoal == goal) {
+                        let isSame = profileStore.savingGoal == goal
+                        // A different goal usually means a different amount, so its target resets.
+                        profileStore.setSavingGoal(isSame ? nil : goal, target: nil)
                     }
                 }
             }
             .padding(.vertical, 6)
-            .sensoryFeedback(.selection, trigger: viewModel.savingGoal)
+            .sensoryFeedback(.selection, trigger: profileStore.savingGoal)
         } header: {
             Text("Saving goal")
         } footer: {
-            if let goal = viewModel.savingGoal {
+            if let goal = profileStore.savingGoal {
                 Text("Insights will be tailored to your \(goal.title) goal \(goal.emoji)")
             } else {
                 Text("Pick what you're saving for and we'll tailor your insights to it.")
