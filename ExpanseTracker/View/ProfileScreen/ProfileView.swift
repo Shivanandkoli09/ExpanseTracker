@@ -270,6 +270,11 @@ struct ProfileView: View {
                     Label("Privacy Policy", systemImage: "hand.raised")
                 }
             }
+            if let url = AppLinks.helpAndSupport {
+                Link(destination: url) {
+                    Label("Help & FAQ", systemImage: "questionmark.circle")
+                }
+            }
             if let url = AppLinks.termsOfUse {
                 Link(destination: url) {
                     Label("Terms of Use", systemImage: "doc.text")
