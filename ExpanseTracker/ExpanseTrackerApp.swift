@@ -59,8 +59,7 @@ private struct SignedInRoot: View {
         .environmentObject(transactionManager)
         .task {
             // Ask only once the user is signed in and has context for why.
-            NotificationManager.shared.requestPermission()
-            NotificationManager.shared.scheduleDailyExpenseReminder()
+            await NotificationManager.shared.applySavedReminderSettings()
         }
     }
 }

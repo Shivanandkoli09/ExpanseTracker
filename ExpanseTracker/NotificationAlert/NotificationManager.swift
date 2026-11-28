@@ -8,94 +8,82 @@
 import Foundation
 import UserNotifications
 
-import Foundation
-import UserNotifications
-
 final class NotificationManager {
 
     static let shared = NotificationManager()
 
     private init() {}
 
-    // MARK: - Request Permission
+    private let center = UNUserNotificationCenter.current()
+    private let reminderID = "daily_expense_reminder"
 
-    func requestPermission() {
+    // MARK: - Saved settings (shared with the Profile screen via @AppStorage)
 
-        UNUserNotificationCenter.current().requestAuthorization(
-            options: [.alert, .sound, .badge]
-        ) { granted, error in
-
-            if let error = error {
-                print("❌ Permission Error:", error.localizedDescription)
-                return
-            }
-
-            if granted {
-                print("✅ Notification Permission Granted")
-            } else {
-                print("❌ Notification Permission Denied")
-            }
-        }
+    enum Keys {
+        static let reminderEnabled = "reminderEnabled"
+        static let reminderHour = "reminderHour"
+        static let reminderMinute = "reminderMinute"
     }
 
-    // MARK: - Daily Expense Reminder
+    static func registerDefaults() {
+        UserDefaults.standard.register(defaults: [
+            Keys.reminderEnabled: true,
+            Keys.reminderHour: 20,
+            Keys.reminderMinute: 0
+        ])
+    }
 
-    func scheduleDailyExpenseReminder() {
+    // MARK: - Permission
 
+    @discardableResult
+    func requestPermission() async -> Bool {
+        (try? await center.requestAuthorization(options: [.alert, .sound, .badge])) ?? false
+    }
+
+    func authorizationStatus() async -> UNAuthorizationStatus {
+        await center.notificationSettings().authorizationStatus
+    }
+
+    // MARK: - Daily Reminder
+
+    /// Applies whatever the user saved in Profile. Safe to call on every launch.
+    func applySavedReminderSettings() async {
+        Self.registerDefaults()
+        let defaults = UserDefaults.standard
+
+        guard defaults.bool(forKey: Keys.reminderEnabled) else {
+            cancelDailyReminder()
+            return
+        }
+        guard await requestPermission() else { return }
+        scheduleDailyReminder(
+            hour: defaults.integer(forKey: Keys.reminderHour),
+            minute: defaults.integer(forKey: Keys.reminderMinute)
+        )
+    }
+
+    func scheduleDailyReminder(hour: Int, minute: Int) {
         let content = UNMutableNotificationContent()
-
         content.title = "Expense Reminder 💰"
         content.body = "Don't forget to track today's expenses."
         content.sound = .default
 
-        var dateComponents = DateComponents()
-
-        dateComponents.hour = 20
-        dateComponents.minute = 0
-
-        let trigger = UNCalendarNotificationTrigger(
-            dateMatching: dateComponents,
-            repeats: true
-        )
+        var components = DateComponents()
+        components.hour = hour
+        components.minute = minute
 
         let request = UNNotificationRequest(
-            identifier: "daily_expense_reminder",
+            identifier: reminderID,
             content: content,
-            trigger: trigger
+            trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
         )
-
-        UNUserNotificationCenter.current().add(request) { error in
-
-            if let error = error {
-                print("❌ Notification Error:", error.localizedDescription)
-            } else {
-                print("✅ Daily Reminder Scheduled")
-            }
+        // Same identifier replaces any previously scheduled reminder.
+        center.add(request) { error in
+            if let error { print("❌ Notification Error:", error.localizedDescription) }
         }
     }
 
-    // MARK: - Debug Pending Notifications
-
-    func printPendingNotifications() {
-
-        UNUserNotificationCenter.current()
-            .getPendingNotificationRequests { requests in
-
-                print("📢 Pending Notifications Count: \(requests.count)")
-
-                for request in requests {
-                    print("📢 Notification ID: \(request.identifier)")
-                }
-            }
-    }
-
-    // MARK: - Clear Notifications
-
-    func clearNotifications() {
-
-        UNUserNotificationCenter.current()
-            .removeAllPendingNotificationRequests()
-
-        print("🗑 Notifications Cleared")
+    func cancelDailyReminder() {
+        center.removePendingNotificationRequests(withIdentifiers: [reminderID])
     }
 }

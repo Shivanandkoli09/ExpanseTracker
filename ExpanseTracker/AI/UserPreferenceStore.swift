@@ -31,6 +31,10 @@ final class UserPreferenceStore {
         return nil
     }
 
+    func clearAll() {
+        UserDefaults.standard.removeObject(forKey: key)
+    }
+
     private func getPreferences() -> [String: String] {
         return UserDefaults.standard.dictionary(forKey: key) as? [String: String] ?? [:]
     }
