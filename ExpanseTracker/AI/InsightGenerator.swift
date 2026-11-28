@@ -90,7 +90,7 @@ final class InsightGenerator {
         // MARK: - Simple Spending Warning
         if lastMonthTotal > 0 && thisMonthTotal > (lastMonthTotal * 1.5) {
             insights.append(
-                Insight(message: "⚠️ Your spending increased significantly this month", type: .warning)
+                Insight(message: "Your spending is up sharply this month. Worth a quick look at your top category.", type: .warning)
             )
         }
 
