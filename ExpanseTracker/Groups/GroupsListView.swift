@@ -5,10 +5,6 @@
 
 import SwiftUI
 
-struct GroupRoute: Hashable {
-    let id: String
-}
-
 struct GroupsListView: View {
     @EnvironmentObject private var store: GroupsStore
     @State private var isCreating = false
@@ -30,7 +26,7 @@ struct GroupsListView: View {
             }
 
             ForEach(store.groups) { group in
-                NavigationLink(value: GroupRoute(id: group.id)) {
+                NavigationLink(value: AppRoute.group(id: group.id)) {
                     GroupRow(group: group)
                 }
                 .swipeActions {
@@ -44,9 +40,6 @@ struct GroupsListView: View {
         }
         .listStyle(.insetGrouped)
         .navigationTitle("Groups")
-        .navigationDestination(for: GroupRoute.self) { route in
-            GroupDetailView(groupID: route.id)
-        }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {

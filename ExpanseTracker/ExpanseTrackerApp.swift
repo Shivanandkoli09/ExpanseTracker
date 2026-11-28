@@ -67,6 +67,7 @@ private struct SignedInRoot: View {
     @StateObject private var transactionManager: TransactionManager
     @StateObject private var profileStore: UserProfileStore
     @StateObject private var groupsStore: GroupsStore
+    @StateObject private var router = AppRouter()
 
     init(userID: String, context: NSManagedObjectContext) {
         _groupsStore = StateObject(wrappedValue: GroupsStore(userId: userID))
@@ -78,9 +79,18 @@ private struct SignedInRoot: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $router.path) {
             HomeView()
+                .navigationDestination(for: AppRoute.self) { route in
+                    switch route {
+                    case .groups:
+                        GroupsListView()
+                    case .group(let id):
+                        GroupDetailView(groupID: id)
+                    }
+                }
         }
+        .environmentObject(router)
         .environmentObject(transactionManager)
         .environmentObject(profileStore)
         .environmentObject(groupsStore)

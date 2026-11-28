@@ -33,8 +33,7 @@ struct HomeView: View {
     @State private var isEditingBudget = false
     @State private var isEditingGoal = false
     @State private var recentlyDeleted: Transaction?
-    @State private var isShowingGroups = false
-    @State private var openGroup: GroupRoute?
+    @EnvironmentObject private var router: AppRouter
 
     private var isSearching: Bool { !searchText.isEmpty }
 
@@ -66,7 +65,7 @@ struct HomeView: View {
                         if txn.isGroupShare {
                             // Edited in the group, so the two never disagree.
                             Button {
-                                if let id = txn.groupID { openGroup = GroupRoute(id: id) }
+                                if let id = txn.groupID { router.openGroup(id) }
                             } label: {
                                 TransactionRowView(txn: txn, groupName: txn.groupID.flatMap { groupsStore.group(withID: $0)?.name } ?? "Group")
                             }
@@ -133,12 +132,6 @@ struct HomeView: View {
         .onChange(of: transactionManager.transactions) { _, _ in refresh() }
         .onChange(of: profileStore.savingGoal) { _, _ in refresh() }
         .onChange(of: profileStore.goalTarget) { _, _ in refresh() }
-        .navigationDestination(isPresented: $isShowingGroups) {
-            GroupsListView()
-        }
-        .navigationDestination(item: $openGroup) { route in
-            GroupDetailView(groupID: route.id)
-        }
         .sheet(isPresented: $isAddingTransaction) {
             NavigationStack {
                 AddTransactionView(manager: transactionManager)
@@ -189,7 +182,7 @@ struct HomeView: View {
                 isEditingGoal = true
             }
             GroupsEntryCard(groups: groupsStore.groups) {
-                isShowingGroups = true
+                router.open(.groups)
             }
             if !viewModel.insights.isEmpty {
                 InsightsScrollView(insights: viewModel.insights)
