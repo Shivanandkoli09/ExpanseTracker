@@ -66,8 +66,10 @@ struct ExpanseTrackerApp: App {
 private struct SignedInRoot: View {
     @StateObject private var transactionManager: TransactionManager
     @StateObject private var profileStore: UserProfileStore
+    @StateObject private var groupsStore: GroupsStore
 
     init(userID: String, context: NSManagedObjectContext) {
+        _groupsStore = StateObject(wrappedValue: GroupsStore(userId: userID))
         _profileStore = StateObject(wrappedValue: UserProfileStore(userId: userID))
         _transactionManager = StateObject(wrappedValue: TransactionManager(
             context: context,
@@ -81,6 +83,7 @@ private struct SignedInRoot: View {
         }
         .environmentObject(transactionManager)
         .environmentObject(profileStore)
+        .environmentObject(groupsStore)
         .task {
             // Ask only once the user is signed in and has context for why.
             await NotificationManager.shared.applySavedReminderSettings()

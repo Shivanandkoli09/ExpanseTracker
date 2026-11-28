@@ -21,6 +21,7 @@ struct HomeView: View {
     @EnvironmentObject private var authViewModel: SignInViewModel
     @EnvironmentObject private var profileStore: UserProfileStore
     @EnvironmentObject private var appLock: AppLockManager
+    @EnvironmentObject private var groupsStore: GroupsStore
 
     @StateObject private var viewModel = HomeViewModel()
 
@@ -32,6 +33,7 @@ struct HomeView: View {
     @State private var isEditingBudget = false
     @State private var isEditingGoal = false
     @State private var recentlyDeleted: Transaction?
+    @State private var isShowingGroups = false
 
     private var isSearching: Bool { !searchText.isEmpty }
 
@@ -120,6 +122,9 @@ struct HomeView: View {
         .onChange(of: transactionManager.transactions) { _, _ in refresh() }
         .onChange(of: profileStore.savingGoal) { _, _ in refresh() }
         .onChange(of: profileStore.goalTarget) { _, _ in refresh() }
+        .navigationDestination(isPresented: $isShowingGroups) {
+            GroupsListView()
+        }
         .sheet(isPresented: $isAddingTransaction) {
             NavigationStack {
                 AddTransactionView(manager: transactionManager)
@@ -168,6 +173,9 @@ struct HomeView: View {
                 summary: viewModel.summary
             ) {
                 isEditingGoal = true
+            }
+            GroupsEntryCard(groups: groupsStore.groups) {
+                isShowingGroups = true
             }
             if !viewModel.insights.isEmpty {
                 InsightsScrollView(insights: viewModel.insights)
