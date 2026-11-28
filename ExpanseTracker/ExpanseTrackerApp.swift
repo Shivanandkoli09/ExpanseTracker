@@ -91,6 +91,14 @@ private struct SignedInRoot: View {
         .onChange(of: transactionManager.transactions) { _, transactions in
             Task { await NotificationManager.shared.updateActivity(transactions: transactions) }
         }
+        // Your share of group expenses counts as personal spending.
+        .onChange(of: groupsStore.groups) { _, _ in syncGroupShares() }
+        .onChange(of: groupsStore.hasLoaded) { _, _ in syncGroupShares() }
+    }
+
+    private func syncGroupShares() {
+        guard groupsStore.hasLoaded else { return }
+        transactionManager.reconcileGroupShares(GroupShareSync.desiredTransactions(for: groupsStore.groups))
     }
 }
 

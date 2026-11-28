@@ -9,6 +9,8 @@ import SwiftUI
 
 struct TransactionRowView: View {
     let txn: Transaction
+    /// Set for your share of a group expense.
+    var groupName: String? = nil
 
     private var isIncome: Bool { txn.type == .income }
 
@@ -25,9 +27,19 @@ struct TransactionRowView: View {
                     .font(.body.weight(.medium))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
-                Text("\(txn.category.displayName) · \(txn.date.formatted(.dateTime.day().month(.abbreviated)))")
+                if let groupName {
+                    HStack(spacing: 4) {
+                        Image(systemName: "person.2.fill")
+                        Text("\(groupName) · your share · \(txn.date.formatted(.dateTime.day().month(.abbreviated)))")
+                    }
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Brand.primary)
+                    .lineLimit(1)
+                } else {
+                    Text("\(txn.category.displayName) · \(txn.date.formatted(.dateTime.day().month(.abbreviated)))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             Spacer(minLength: 8)

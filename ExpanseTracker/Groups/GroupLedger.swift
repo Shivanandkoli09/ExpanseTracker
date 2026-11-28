@@ -44,11 +44,7 @@ struct GroupLedger {
             guard paise > 0 else { continue }
             total += paise
 
-            let people = group.participants(of: expense)
-            let base = paise / people.count
-            let remainder = paise % people.count
-            for (index, member) in people.enumerated() {
-                let portion = base + (index < remainder ? 1 : 0)
+            for (member, portion) in group.portions(of: expense) {
                 share[member, default: 0] += portion
                 net[member, default: 0] -= portion
             }

@@ -13,6 +13,9 @@ import FirebaseFirestore
 final class GroupsStore: ObservableObject {
 
     @Published private(set) var groups: [ExpenseGroup] = []
+    /// False until a trustworthy snapshot arrives. An empty *cached* snapshot
+    /// (e.g. offline first launch) doesn't count, so nothing gets wrongly removed.
+    @Published private(set) var hasLoaded = false
 
     private let collection: CollectionReference
     private let listener = GroupsListenerBox()
@@ -24,13 +27,17 @@ final class GroupsStore: ObservableObject {
                 print("☁️ Groups listen error: \(error?.localizedDescription ?? "unknown")")
                 return
             }
+            let isTrustworthy = !(snapshot.metadata.isFromCache && snapshot.documents.isEmpty)
             let groups: [ExpenseGroup] = snapshot.documents.compactMap { document in
                 guard var group = try? document.data(as: ExpenseGroup.self) else { return nil }
                 group.id = document.documentID
                 return group
             }
             Task { @MainActor in
-                self?.groups = groups.sorted { $0.createdAt > $1.createdAt }
+                guard let self else { return }
+                if !isTrustworthy && !self.hasLoaded { return }
+                self.groups = groups.sorted { $0.createdAt > $1.createdAt }
+                self.hasLoaded = true
             }
         }
     }

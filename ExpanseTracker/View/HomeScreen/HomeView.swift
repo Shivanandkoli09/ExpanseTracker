@@ -34,6 +34,7 @@ struct HomeView: View {
     @State private var isEditingGoal = false
     @State private var recentlyDeleted: Transaction?
     @State private var isShowingGroups = false
+    @State private var openGroup: GroupRoute?
 
     private var isSearching: Bool { !searchText.isEmpty }
 
@@ -62,6 +63,15 @@ struct HomeView: View {
             ForEach(monthGroups, id: \.month) { group in
                 Section {
                     ForEach(group.transactions) { txn in
+                        if txn.isGroupShare {
+                            // Edited in the group, so the two never disagree.
+                            Button {
+                                if let id = txn.groupID { openGroup = GroupRoute(id: id) }
+                            } label: {
+                                TransactionRowView(txn: txn, groupName: txn.groupID.flatMap { groupsStore.group(withID: $0)?.name } ?? "Group")
+                            }
+                            .buttonStyle(.plain)
+                        } else {
                         Button {
                             editingTransaction = txn
                         } label: {
@@ -80,6 +90,7 @@ struct HomeView: View {
                                 Label("Edit", systemImage: "pencil")
                             }
                             .tint(Brand.primary)
+                        }
                         }
                     }
                 } header: {
@@ -124,6 +135,9 @@ struct HomeView: View {
         .onChange(of: profileStore.goalTarget) { _, _ in refresh() }
         .navigationDestination(isPresented: $isShowingGroups) {
             GroupsListView()
+        }
+        .navigationDestination(item: $openGroup) { route in
+            GroupDetailView(groupID: route.id)
         }
         .sheet(isPresented: $isAddingTransaction) {
             NavigationStack {

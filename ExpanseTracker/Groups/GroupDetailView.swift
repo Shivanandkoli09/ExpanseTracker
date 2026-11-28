@@ -38,10 +38,14 @@ struct GroupDetailView: View {
             .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
 
             if !group.expenses.isEmpty {
-                Section("Balances") {
+                Section {
                     ForEach(group.members) { member in
                         memberBalanceRow(member, ledger)
                     }
+                } header: {
+                    Text("Balances")
+                } footer: {
+                    Text("Only your share (\(Currency.string(ledger.share(of: GroupMember.meID)))) counts towards your MyMoney spending and budget.")
                 }
             }
 

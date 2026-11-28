@@ -51,6 +51,34 @@ final class TransactionManager: ObservableObject {
         pushToRemote { try await $0.delete(txn) }
     }
 
+    // MARK: - Group shares
+
+    /// Makes the group-derived transactions match `desired` exactly:
+    /// adds new ones, updates changed ones, removes ones whose expense or group is gone.
+    func reconcileGroupShares(_ desired: [Transaction]) {
+        var current: [String: Transaction] = [:]
+        for txn in transactions where txn.isGroupShare {
+            if let id = txn.id { current[id] = txn }
+        }
+        var wanted: [String: Transaction] = [:]
+        for txn in desired {
+            if let id = txn.id { wanted[id] = txn }
+        }
+
+        var changed = false
+        for (id, txn) in wanted where !(current[id]?.matches(txn) ?? false) {
+            upsertLocal(txn)
+            pushToRemote { try $0.save(txn) }
+            changed = true
+        }
+        for (id, txn) in current where wanted[id] == nil {
+            if let entity = entity(withID: id) { context.delete(entity) }
+            pushToRemote { try await $0.delete(txn) }
+            changed = true
+        }
+        if changed { saveAndReload() }
+    }
+
     // MARK: - Remote → Local
 
     /// Makes Core Data mirror the remote list exactly (adds, updates and deletes).

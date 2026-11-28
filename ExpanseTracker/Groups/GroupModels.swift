@@ -60,7 +60,7 @@ struct GroupPayment: Codable, Identifiable, Equatable {
     var date: Date = Date()
 }
 
-struct ExpenseGroup: Codable, Identifiable {
+struct ExpenseGroup: Codable, Identifiable, Equatable {
     var id: String = UUID().uuidString
     var name: String
     var emoji: String
@@ -95,6 +95,21 @@ struct ExpenseGroup: Codable, Identifiable {
         let chosen = Set(expense.splitAmong)
         let ordered = members.map(\.id).filter { chosen.isEmpty || chosen.contains($0) }
         return ordered.isEmpty ? members.map(\.id) : ordered
+    }
+
+    /// Each participant's portion of an expense, in paise. Uneven paise go to
+    /// the first participants, so portions always add up to the exact total.
+    func portions(of expense: GroupExpense) -> [String: Int] {
+        let paise = Int((expense.amount * 100).rounded())
+        guard paise > 0 else { return [:] }
+        let people = participants(of: expense)
+        let base = paise / people.count
+        let remainder = paise % people.count
+        var result: [String: Int] = [:]
+        for (index, member) in people.enumerated() {
+            result[member, default: 0] += base + (index < remainder ? 1 : 0)
+        }
+        return result
     }
 
     /// A member can't be removed once money is attached to them.
