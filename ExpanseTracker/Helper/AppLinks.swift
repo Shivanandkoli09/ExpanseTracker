@@ -14,7 +14,6 @@ enum AppLinks {
     static let helpAndSupport = URL(string: "\(site)/support.html")
     static let termsOfUse: URL? = nil
 
-    /// Set to the support address once it exists, e.g. "mymoney.support@gmail.com".
     /// Must match the address in docs/privacy.html and docs/support.html.
-    static let supportEmail: String? = nil
+    static let supportEmail: String? = "expansesupport@gmail.com"
 }
